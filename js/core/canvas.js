@@ -271,9 +271,10 @@ const CanvasManager = {
             ctx.fillStyle = obj.fillColor || '#000000';
             ctx.fillText(obj.text, obj.x, obj.y + (obj.fontSize || 16));
         } else if (obj.type === 'imageData') {
-            const img = new Image();
-            img.src = obj.imageData;
-            ctx.drawImage(img, 0, 0, this.width, this.height);
+            // Используем кешированное изображение для избежания проблем с асинхронной загрузкой
+            if (obj.cachedImage && obj.cachedImage.complete) {
+                ctx.drawImage(obj.cachedImage, 0, 0, this.width, this.height);
+            }
         }
 
         ctx.restore();

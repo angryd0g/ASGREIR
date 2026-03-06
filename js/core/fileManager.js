@@ -156,10 +156,11 @@ const FileManager = {
             const img = new Image();
             img.onload = () => {
                 CanvasManager.newProject(img.width, img.height);
-                // Добавляем изображение как объект в слой, чтобы оно не терялось при рисовании
+                // Добавляем изображение как объект в слой с кешированным изображением
                 const imageObj = {
                     type: 'imageData',
-                    imageData: evt.target.result
+                    imageData: evt.target.result,
+                    cachedImage: img  // Кешируем уже загруженное изображение
                 };
                 CanvasManager.activeLayer.objects.push(imageObj);
                 CanvasManager.redraw();
