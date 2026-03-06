@@ -1,0 +1,74 @@
+/* Адаптивность для планшетов */
+@media (max-width: 1024px) {
+    .tools-panel {
+        width: 220px;
+    }
+    
+    .layers-panel {
+        width: 200px;
+    }
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+    .tools-panel {
+        width: 70px;
+    }
+    
+    .tools-panel .panel-section h3,
+    .tools-panel .color-value,
+    .tools-panel .property-group label span {
+        display: none;
+    }
+    
+    .tools-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .layers-panel {
+        width: 200px;
+    }
+    
+    .status-right span:first-child {
+        display: none;
+    }
+    
+    .canvas-navigation {
+        bottom: 10px;
+        right: 10px;
+        padding: 4px;
+    }
+    
+    .nav-btn {
+        width: 28px;
+        height: 28px;
+    }
+}
+
+/* Адаптивность для очень маленьких экранов */
+@media (max-width: 480px) {
+    .layers-panel {
+        display: none;
+    }
+    
+    .header-actions {
+        display: none;
+    }
+    
+    .tools-panel {
+        width: 60px;
+    }
+    
+    .status-left span:last-child {
+        display: none;
+    }
+}
+
+/* Поддержка темной темы системой */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-primary: #1a1a1a;
+        --bg-secondary: #252525;
+        --bg-tertiary: #2d2d2d;
+    }
+}

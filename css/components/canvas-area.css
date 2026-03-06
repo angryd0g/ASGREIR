@@ -1,0 +1,102 @@
+/* Центральная область с холстом */
+.canvas-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-primary);
+    position: relative;
+    overflow: hidden;
+}
+
+.canvas-container {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #1a1a1a;
+    background-image: 
+        linear-gradient(#2d2d2d 1px, transparent 1px),
+        linear-gradient(90deg, #2d2d2d 1px, transparent 1px);
+    background-size: 20px 20px;
+    cursor: default;
+    min-height: 400px;
+    min-width: 400px;
+}
+
+.canvas-container.panning {
+    cursor: grabbing;
+}
+
+.canvas-container.panning #drawCanvas {
+    cursor: grabbing;
+}
+
+#drawCanvas {
+    background: white;
+    box-shadow: var(--shadow);
+    display: block;
+    cursor: crosshair; /* Стандартный курсор для рисования */
+    /* Плавные переходы для трансформаций */
+    transition: transform 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    /* Аппаратное ускорение */
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+}
+
+/* Курсор при панорамировании правой кнопкой */
+#drawCanvas.panning-right {
+    cursor: grabbing;
+}
+
+/* Навигация по холсту */
+.canvas-navigation {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    padding: 8px;
+    display: flex;
+    gap: 8px;
+    box-shadow: var(--shadow);
+    z-index: 100;
+}
+
+.nav-btn {
+    background: var(--bg-tertiary);
+    border: none;
+    color: var(--text-primary);
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.nav-btn:hover {
+    background: var(--accent);
+}
+
+#zoomLevel {
+    color: var(--text-secondary);
+    font-size: 13px;
+    min-width: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+/* Улучшение четкости для canvas */
+#drawCanvas {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    image-rendering: pixelated;
+    -ms-interpolation-mode: nearest-neighbor;
+}
+
+/* Для Retina-экранов */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    #drawCanvas {
+        image-rendering: auto;
+    }
+}

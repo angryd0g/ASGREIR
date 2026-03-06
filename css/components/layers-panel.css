@@ -1,0 +1,280 @@
+/* Правая панель слоев */
+.layers-panel {
+    width: 260px;
+    background: var(--bg-secondary);
+    border-left: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.layers-panel .panel-section {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-shrink: 0;
+}
+
+.panel-header h3 {
+    color: var(--text-secondary);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0;
+}
+
+.add-layer-btn {
+    background: var(--bg-tertiary);
+    border: none;
+    color: var(--text-secondary);
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.add-layer-btn:hover {
+    background: var(--accent);
+    color: white;
+    transform: translateY(-1px);
+}
+
+/* Список слоев */
+.layers-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+    padding-right: 4px;
+}
+
+/* Стилизация скроллбара */
+.layers-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.layers-list::-webkit-scrollbar-track {
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+}
+
+.layers-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+.layers-list::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
+}
+
+/* Элемент слоя */
+.layer-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+    user-select: none;
+}
+
+.layer-item:hover {
+    background: #3a3a3a;
+    transform: translateX(2px);
+}
+
+.layer-item.active {
+    background: var(--accent);
+    border-color: var(--accent-hover);
+    box-shadow: 0 2px 8px rgba(74, 144, 226, 0.3);
+}
+
+.layer-item.active .layer-name {
+    color: white;
+}
+
+/* Иконка слоя (зависит от типа объекта) */
+.layer-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 10px;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.layer-item.active .layer-icon {
+    color: white;
+}
+
+/* Иконки для разных типов объектов */
+.layer-icon.rect {
+    color: #4a90e2;
+}
+.layer-icon.circle {
+    color: #e24a90;
+}
+.layer-icon.line {
+    color: #90e24a;
+}
+.layer-icon.polygon {
+    color: #e2b04a;
+}
+.layer-icon.text {
+    color: #b04ae2;
+}
+.layer-icon.image {
+    color: #4ae2b0;
+}
+
+/* Информация о слое */
+.layer-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0; /* Для обрезки текста */
+}
+
+.layer-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.layer-type {
+    font-size: 10px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.layer-item.active .layer-type {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+/* Действия со слоем */
+.layer-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.layer-item:hover .layer-actions {
+    opacity: 1;
+}
+
+.layer-actions button {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+}
+
+.layer-actions button:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+.layer-item.active .layer-actions button {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.layer-item.active .layer-actions button:hover {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+/* Индикатор видимости */
+.layer-visibility.visible {
+    color: var(--accent);
+}
+
+.layer-item.active .layer-visibility.visible {
+    color: white;
+}
+
+/* Перетаскивание слоев */
+.layer-item.dragging {
+    opacity: 0.5;
+    transform: scale(0.98);
+}
+
+.layer-item.drag-over {
+    border-top: 2px solid var(--accent);
+}
+
+/* Пустое состояние */
+.empty-layers {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+    text-align: center;
+    border: 2px dashed var(--border-color);
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.empty-layers i {
+    font-size: 32px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+
+.empty-layers p {
+    font-size: 13px;
+    opacity: 0.7;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .layers-panel {
+        width: 220px;
+    }
+    
+    .layer-name {
+        font-size: 12px;
+    }
+    
+    .layer-actions {
+        opacity: 1;
+    }
+}
+
+@media (max-width: 480px) {
+    .layers-panel {
+        display: none;
+    }
+}

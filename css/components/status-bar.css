@@ -1,0 +1,21 @@
+/* Строка состояния */
+.status-bar {
+    background: var(--bg-secondary);
+    padding: 8px 20px;
+    display: flex;
+    justify-content: space-between;
+    border-top: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.status-left, .status-right {
+    display: flex;
+    gap: 20px;
+}
+
+.status-left span, .status-right span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}

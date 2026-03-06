@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ASGREIR</title>
+
+    <link rel="icon" type="image/x-icon" href="assets/icons/favicon.ico">
+
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/components/header.css">
+    <link rel="stylesheet" href="css/components/tools-panel.css">
+    <link rel="stylesheet" href="css/components/canvas-area.css">
+    <link rel="stylesheet" href="css/components/layers-panel.css">
+    <link rel="stylesheet" href="css/components/status-bar.css">
+    <link rel="stylesheet" href="css/responsive.css">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Верхняя панель с названием -->
+        <header class="app-header">
+            <div class="logo">
+            <img src="assets/icons/logo.png" alt="ASGREIR Logo" width="32" height="32">
+                <h1>ASGREIR - Графический редактор</h1>
+            </div>
+            <div class="header-actions">
+                <button class="history-btn" id="undo" title="Отменить (Ctrl+Z)"><i class="fas fa-undo"></i></button>
+                <button class="history-btn" id="redo" title="Повторить (Ctrl+Y)"><i class="fas fa-redo"></i></button>
+                <button class="header-btn" title="Новый проект"><i class="fas fa-file"></i></button>
+                <button class="header-btn" title="Открыть"><i class="fas fa-folder-open"></i></button>
+                <button class="header-btn" title="Сохранить"><i class="fas fa-save"></i></button>
+                <button class="header-btn" title="Экспорт"><i class="fas fa-download"></i></button>
+            </div>
+        </header>
+        <div class="main-layout">
+            <!-- Левая панель - Инструменты -->
+<!-- Левая панель - Инструменты -->
+<aside class="tools-panel">
+    <!-- ВКЛАДКА: Инструменты (основные) -->
+    <div class="panel-section collapsible">
+        <div class="section-header" data-toggle="tools-section">
+            <h3>Инструменты</h3>
+            <i class="fas fa-chevron-down toggle-icon"></i>
+        </div>
+        <div class="section-content" id="tools-section">
+            <div class="tools-grid">
+                <button class="tool-btn active" data-tool="select" title="Выделение (V)">
+                    <i class="fas fa-mouse-pointer"></i>
+                </button>
+                <button class="tool-btn" data-tool="pencil" title="Карандаш (P)">
+                    <i class="fas fa-pencil-alt"></i>
+                </button>
+                <button class="tool-btn" data-tool="eraser" title="Ластик (E)">
+                    <i class="fas fa-eraser"></i>
+                </button>
+                <button class="tool-btn" data-tool="fill" title="Заливка (F)">
+                    <i class="fas fa-fill-drip"></i>
+                </button>
+                <button class="tool-btn" data-tool="text" title="Текст (T)">
+                    <i class="fas fa-font"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ВКЛАДКА: Фигуры -->
+    <div class="panel-section collapsible">
+        <div class="section-header" data-toggle="shapes-section">
+            <h3>Фигуры</h3>
+            <i class="fas fa-chevron-down toggle-icon"></i>
+        </div>
+        <div class="section-content" id="shapes-section">
+            <!-- Базовые фигуры -->
+            <div class="sub-section">
+                <h4>Базовые</h4>
+                <div class="shapes-grid">
+                    <button class="shape-btn" data-tool="line" title="Линия">
+                        <i class="fas fa-slash"></i>
+                    </button>
+                    <button class="shape-btn" data-tool="rect" title="Прямоугольник">
+                        <i class="fas fa-square"></i>
+                    </button>
+                    <button class="shape-btn" data-tool="circle" title="Круг">
+                        <i class="far fa-circle"></i>
+                    </button>
+                    <button class="shape-btn" data-tool="ellipse" title="Эллипс">
+                        <i class="fas fa-oval"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Треугольники -->
+            <div class="sub-section">
+                <h4>Треугольники</h4>
+                <div class="shapes-grid">
+                    <button class="shape-btn" data-tool="triangle" title="Треугольник">
+                        <i class="fas fa-play" style="transform: rotate(-90deg);"></i>
+                    </button>
+                    <button class="shape-btn" data-tool="rightTriangle" title="Прямоугольный треугольник">
+                        <i class="fas fa-play" style="transform: rotate(-135deg);"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Многоугольники -->
+            <div class="sub-section">
+                <h4>Многоугольники</h4>
+                <div class="shapes-grid">
+                    <button class="shape-btn" data-tool="rhombus" title="Ромб">
+                        ⬪
+                    </button>
+                    <button class="shape-btn" data-tool="pentagon" title="Пятиугольник">
+                        ⬟
+                    </button>
+                    <button class="shape-btn" data-tool="hexagon" title="Шестиугольник">
+                        ⬢
+                    </button>
+                </div>
+            </div>
+
+            <!-- Стрелки -->
+            <div class="sub-section">
+                <h4>Стрелки</h4>
+                <div class="shapes-grid arrow-grid">
+                    <button class="shape-btn" data-tool="arrowRight" title="Стрелка вправо">
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                    <button class="shape-btn" data-tool="arrowLeft" title="Стрелка влево">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <button class="shape-btn" data-tool="arrowUp" title="Стрелка вверх">
+                        <i class="fas fa-arrow-up"></i>
+                    </button>
+                    <button class="shape-btn" data-tool="arrowDown" title="Стрелка вниз">
+                        <i class="fas fa-arrow-down"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Звезды -->
+            <div class="sub-section">
+                <h4>Звезды</h4>
+                <div class="shapes-grid">
+                    <button class="shape-btn" data-tool="star4" title="Четырехконечная звезда">
+                        <i class="fas fa-star" style="transform: rotate(45deg);"></i>
+                    </button>
+                    <button class="shape-btn" data-tool="star5" title="Пятиконечная звезда">
+                        <i class="fas fa-star"></i>
+                    </button>
+                    <button class="shape-btn" data-tool="star6" title="Шестиконечная звезда">
+                        ✡️
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ВКЛАДКА: Свойства -->
+    <div class="panel-section collapsible">
+        <div class="section-header" data-toggle="properties-section">
+            <h3>Свойства</h3>
+            <i class="fas fa-chevron-down toggle-icon"></i>
+        </div>
+        <div class="section-content" id="properties-section">
+            <div class="properties-panel">
+                <div class="property-group">
+                    <label>Обводка</label>
+                    <div class="color-input">
+                        <input type="color" id="stroke-color" value="#000000">
+                        <span class="color-value">#000000</span>
+                    </div>
+                </div>
+                <div class="property-group">
+                    <label>Заливка</label>
+                    <div class="color-input">
+                        <input type="color" id="fill-color" value="#4a90e2">
+                        <span class="color-value">#4a90e2</span>
+                    </div>
+                </div>
+                <div class="property-group">
+                    <label>Толщина <span id="stroke-width-value">2px</span></label>
+                    <input type="range" id="stroke-width" min="1" max="20" value="2">
+                </div>
+                <div class="property-group" id="font-size-group" style="display: none;">
+                    <label>Размер текста <span id="font-size-value">16px</span></label>
+                    <input type="range" id="font-size" min="8" max="72" value="16">
+                </div>
+            </div>
+        </div>
+    </div>
+</aside>            
+
+            <!-- Центральная область - Холст -->
+            <main class="canvas-area">
+                <div class="canvas-container" id="canvasContainer">
+                    <canvas id="drawCanvas" width="1200" height="800"></canvas>
+                </div>
+                
+                <!-- Навигация по холсту -->
+                <div class="canvas-navigation">
+                    <button class="nav-btn" id="zoomIn" title="Приблизить (Ctrl+↑)">
+                        <i class="fas fa-search-plus"></i>
+                    </button>
+                    <span id="zoomLevel">100%</span>
+                    <button class="nav-btn" id="zoomOut" title="Отдалить (Ctrl+↓)">
+                        <i class="fas fa-search-minus"></i>
+                    </button>
+                    <button class="nav-btn" id="fitView" title="По размеру окна">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </main>
+
+            <!-- Правая панель - Слои -->
+            <aside class="layers-panel">
+    <div class="panel-section">
+        <div class="panel-header">
+            <h3>Слои</h3>
+            <button class="add-layer-btn" title="Добавить слой">
+                <i class="fas fa-plus"></i>
+            </button>
+        </div>
+        <div class="layers-list" id="layersList">
+            <!-- Слои будут добавляться сюда динамически -->
+        </div>
+    </div>
+</aside>    
+        </div>
+
+        <!-- Нижняя панель статуса -->
+        <footer class="status-bar">
+            <div class="status-left">
+                <span><i class="fas fa-mouse-pointer"></i> <span id="mouse-coords">X: 0, Y: 0</span></span>
+                <span><i class="fas fa-vector-square"></i> <span id="selection-info">Нет выделения</span></span>
+            </div>
+            <div class="status-right">
+                <span><i class="fas fa-hand"></i> Зажмите пробел для перемещения</span>
+                <span><i class="fas fa-sync-alt"></i> v1.0.0</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Модальные окна -->
+    <div id="newProjectModal" class="modal hidden">
+    <div class="modal-content">
+        <h2><i class="fas fa-plus-circle"></i> Новый проект</h2>
+        
+        <div class="size-presets">
+            <h3>Выберите размер</h3>
+            <div class="preset-grid" id="presetGrid"></div>
+        </div>
+
+        <div class="custom-size">
+            <div class="input-group">
+                <label>Ширина (px)</label>
+                <input type="number" id="newWidth" value="1200" min="1" max="8192">
+            </div>
+            <div class="input-group">
+                <label>Высота (px)</label>
+                <input type="number" id="newHeight" value="800" min="1" max="8192">
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label>Название проекта</label>
+            <input type="text" id="projectName" placeholder="Мой проект">
+        </div>
+
+        <div class="modal-actions">
+            <button class="modal-btn" id="cancelNewProjectBtn">Отмена</button>
+            <button class="modal-btn primary" id="createProjectBtn">Создать</button>
+        </div>
+    </div>
+</div>
+
+    <input type="file" id="openFileInput" accept="image/*" style="display:none;">
+
+    <div id="fileModal" class="modal hidden">
+    <div class="modal-content">
+        <h2 id="fileModalTitle"><i class="fas fa-download"></i> Экспорт</h2>
+        
+        <div class="input-group">
+            <label>Имя файла</label>
+            <input type="text" id="fileNameInput" placeholder="untitled">
+        </div>
+
+        <div class="size-presets">
+            <h3>Выберите формат</h3>
+            <div class="format-grid" id="formatGrid"></div>
+        </div>
+
+        <!-- Скрытый select для обратной совместимости -->
+        <select id="fileFormatSelect" style="display: none;">
+            <option value="png">PNG</option>
+            <option value="jpeg">JPEG</option>
+            <option value="webp">WEBP</option>
+            <option value="ico">ICO</option>
+            <option value="bmp">BMP</option>
+            <option value="gif">GIF</option>
+            <option value="svg">SVG</option>
+            <option value="pdf">PDF</option>
+        </select>
+
+        <div class="modal-actions">
+            <button class="modal-btn" id="fileModalCancel">Отмена</button>
+            <button class="modal-btn primary" id="fileModalOk">Сохранить</button>
+        </div>
+    </div>
+</div>
+
+    <!-- JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+    <script src="js/utils/helpers.js"></script>
+    <script src="js/core/canvas.js"></script>
+    <script src="js/core/shapes.js"></script> 
+    <script src="js/core/tools.js"></script>
+    <script src="js/core/layers.js"></script>
+    <script src="js/core/navigation.js"></script>
+    <script src="js/core/history.js"></script>
+    <script src="js/core/fileManager.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,350 @@
+/* Левая панель инструментов */
+.tools-panel {
+    width: 260px;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.panel-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.panel-section h3 {
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+}
+
+.tools-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.tool-btn {
+    background: var(--bg-tertiary);
+    border: none;
+    color: var(--text-primary);
+    width: 100%;
+    height: 48px; /* Фиксированная высота вместо aspect-ratio */
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 20px; /* Увеличиваем размер иконок */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.tool-btn i {
+    font-size: 22px; /* Размер иконок */
+}
+
+.tool-btn:hover {
+    background: #3d3d3d;
+}
+
+.tool-btn.active {
+    background: var(--accent);
+    color: white;
+}
+
+.tool-btn.active i {
+    color: white;
+}
+
+/* Панель свойств */
+.properties-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px; /* Увеличиваем отступы */
+}
+
+.property-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.property-group label {
+    color: var(--text-secondary);
+    font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.color-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-tertiary);
+    padding: 6px; /* Увеличиваем отступы */
+    border-radius: 6px;
+}
+
+.color-input input[type="color"] {
+    width: 48px; /* Увеличиваем размер */
+    height: 36px; /* Увеличиваем размер */
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    background: transparent;
+}
+
+.color-input input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.color-input input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 4px;
+}
+
+.color-value {
+    color: var(--text-secondary);
+    font-size: 13px; /* Увеличиваем шрифт */
+    font-family: monospace;
+}
+
+/* Стили для range input */
+.property-group input[type="range"] {
+    width: 100%;
+    height: 6px; /* Увеличиваем высоту трека */
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+    -webkit-appearance: none;
+    appearance: none;
+    outline: none;
+}
+
+/* WebKit (Chrome, Safari, Edge) */
+.property-group input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px; /* Увеличиваем ползунок */
+    height: 20px; /* Увеличиваем ползунок */
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+    margin-top: -7px; /* Центрирование относительно трека */
+    transition: transform 0.1s;
+}
+
+.property-group input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+    background: var(--accent-hover);
+}
+
+.property-group input[type="range"]::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+}
+
+/* Firefox */
+.property-group input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: var(--accent);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.property-group input[type="range"]::-moz-range-thumb:hover {
+    transform: scale(1.2);
+    background: var(--accent-hover);
+}
+
+.property-group input[type="range"]::-moz-range-track {
+    width: 100%;
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+}
+
+/* Для браузеров на движке Trident (старый Internet Explorer) */
+.property-group input[type="range"]::-ms-thumb {
+    width: 20px;
+    height: 20px;
+    background: var(--accent);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.property-group input[type="range"]::-ms-track {
+    width: 100%;
+    height: 6px;
+    background: transparent;
+    border-color: transparent;
+    color: transparent;
+}
+
+.property-group input[type="range"]::-ms-fill-lower {
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+}
+
+.property-group input[type="range"]::-ms-fill-upper {
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+}
+
+#stroke-width-value {
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* История */
+.history-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.history-btn {
+    flex: 1;
+    background: var(--bg-tertiary);
+    border: none;
+    color: var(--text-primary);
+    height: 42px; /* Увеличиваем высоту */
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 18px; /* Увеличиваем иконки */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.history-btn i {
+    font-size: 20px;
+}
+
+.history-btn:hover {
+    background: var(--accent);
+}
+/* Стили для сворачиваемых секций */
+.collapsible {
+    margin-bottom: 8px;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.section-header:hover {
+    color: var(--accent);
+}
+
+.section-header h3 {
+    margin: 0;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.toggle-icon {
+    font-size: 12px;
+    transition: transform 0.3s ease;
+}
+
+.section-header.collapsed .toggle-icon {
+    transform: rotate(-90deg);
+}
+
+.section-content {
+    padding: 12px 0;
+    transition: all 0.3s ease;
+}
+
+.section-content.collapsed {
+    display: none;
+}
+
+/* Подсекции */
+.sub-section {
+    margin-bottom: 16px;
+}
+
+.sub-section h4 {
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    opacity: 0.8;
+}
+
+/* Сетка для фигур */
+.shapes-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.arrow-grid {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.shape-btn {
+    background: var(--bg-tertiary);
+    border: none;
+    color: var(--text-primary);
+    height: 40px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.shape-btn:hover {
+    background: #3d3d3d;
+    transform: scale(1.05);
+}
+
+.shape-btn.active {
+    background: var(--accent);
+    color: white;
+}
+
+.shape-btn i {
+    font-size: 18px;
+}
+
+/* Для текстовых символов в кнопках */
+.shape-btn:contains('⬪'),
+.shape-btn:contains('⬟'),
+.shape-btn:contains('⬢') {
+    font-size: 24px;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .shapes-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .section-header h3 {
+        font-size: 12px;
+    }
+}

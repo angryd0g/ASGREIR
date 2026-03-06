@@ -1,0 +1,134 @@
+/* Верхняя панель */
+.app-header {
+    background: var(--bg-secondary);
+    padding: 8px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    -webkit-app-region: drag;
+    height: 56px;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 200px;
+}
+
+.logo img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+}
+
+.logo h1 {
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+
+/* Центральная группа кнопок истории */
+.history-group {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    -webkit-app-region: no-drag;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.history-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.history-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    transform: translateY(-1px);
+}
+
+.history-btn:active {
+    transform: translateY(0);
+}
+
+.history-btn i {
+    font-size: 16px;
+}
+
+/* Правая группа действий */
+.header-actions {
+    display: flex;
+    gap: 6px;
+    -webkit-app-region: no-drag;
+    min-width: 200px;
+    justify-content: flex-end;
+}
+
+.header-btn {
+    background: var(--bg-tertiary);
+    border: none;
+    color: var(--text-secondary);
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.header-btn:hover {
+    background: var(--accent);
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(74, 144, 226, 0.3);
+}
+
+.header-btn:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+.header-btn i {
+    font-size: 16px;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .logo h1 {
+        display: none;
+    }
+    
+    .logo {
+        min-width: auto;
+    }
+    
+    .header-actions {
+        min-width: auto;
+    }
+}
+
+@media (max-width: 480px) {
+    .history-group {
+        display: none;
+    }
+}

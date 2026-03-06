@@ -1,0 +1,92 @@
+/* Импорт компонентов */
+@import url('components/header.css');
+@import url('components/tools-panel.css');
+@import url('components/canvas-area.css');
+@import url('components/layers-panel.css');
+@import url('components/status-bar.css');
+@import url('components/modals.css');
+@import url('responsive.css');
+
+/* Глобальные переменные и сброс */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg-primary: #1a1a1a;
+    --bg-secondary: #252525;
+    --bg-tertiary: #2d2d2d;
+    --accent: #b0b0b0;
+    --accent-hover: #5a9ef2;
+    --text-primary: #ffffff;
+    --text-secondary: #b0b0b0;
+    --border-color: #404040;
+    --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    overflow: hidden;
+}
+
+
+.app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.main-layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+/* Временное поле ввода текста */
+.text-input-temp {
+    position: absolute;
+    background: white;
+    border: 2px solid var(--accent);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-family: Arial, sans-serif;
+    font-size: 16px;
+    color: black;
+    outline: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    animation: fadeIn 0.2s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Подсветка выделенного объекта */
+.object-selected {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* Индикатор активного инструмента */
+.tool-btn[data-tool="eraser"].active i {
+    transform: rotate(45deg);
+}
+
+.tool-btn[data-tool="fill"].active i {
+    color: var(--accent);
+}
+
+/* Анимация для ластика */
+@keyframes erase {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+.tool-btn[data-tool="eraser"]:active i {
+    animation: erase 0.2s ease;
+}
