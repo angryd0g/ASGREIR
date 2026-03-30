@@ -3,11 +3,14 @@ const CanvasManager = {
     previewCanvas: null,
     previewCtx: null,
     ctx: null,
+    gridCanvas: null,      // Canvas для сетки
+    gridCtx: null,         // Контекст для сетки
     layers: [],
     activeLayerIndex: 0,
     width: 1200,
     height: 800,
     pixelRatio: window.devicePixelRatio || 1,
+    showGrid: true,        // Показывать ли сетку
 
     init(canvasElement) {
         this.canvas = canvasElement;
@@ -23,6 +26,9 @@ const CanvasManager = {
         this.previewCanvas.height = this.canvas.height;
         this.previewCtx = this.previewCanvas.getContext('2d');
         this.previewCtx.scale(this.pixelRatio, this.pixelRatio);
+        
+        // Включаем альфа-композицию для ластика
+        this.previewCtx.globalCompositeOperation = 'source-over';
     },
     
     setupHighResCanvas() {
@@ -37,6 +43,9 @@ const CanvasManager = {
 
         this.ctx.scale(this.pixelRatio, this.pixelRatio);
 
+        // Пересоздаем canvas сетки при изменении размера
+        this.createGridCanvas();
+
         // Пересоздание слоёв
         this.layers.forEach(layer => {
             const newCanvas = document.createElement('canvas');
@@ -47,7 +56,6 @@ const CanvasManager = {
             newCtx.imageSmoothingEnabled = true;
             newCtx.imageSmoothingQuality = 'high';
             
-            // Пересоздаём содержимое путем перерисовки всех объектов
             layer.objects.forEach(obj => this.drawSingleObject(newCtx, obj));
             
             layer.canvas = newCanvas;
@@ -62,6 +70,80 @@ const CanvasManager = {
         this.previewCtx = this.previewCanvas.getContext('2d');
         this.previewCtx.scale(this.pixelRatio, this.pixelRatio);
         if (oldPreview) this.previewCtx.drawImage(oldPreview, 0, 0);
+    },
+
+    // Создание отдельного canvas для сетки
+    createGridCanvas() {
+        this.gridCanvas = document.createElement('canvas');
+        this.gridCanvas.width = this.canvas.width;
+        this.gridCanvas.height = this.canvas.height;
+        this.gridCtx = this.gridCanvas.getContext('2d');
+        this.gridCtx.scale(this.pixelRatio, this.pixelRatio);
+        this.drawGridOnCanvas(this.gridCtx);
+    },
+
+    // Создание overlay canvas для сетки (не физический)
+    createGridOverlay() {
+        if (this.gridOverlay) {
+            this.gridOverlay.remove(); // Удаляем старый, чтобы не накапливать
+        }
+
+        // Для абсолютного overlay нужен позиционированный контейнер
+        const container = this.canvas.parentElement;
+        if (container && window.getComputedStyle(container).position === 'static') {
+            container.style.position = 'relative';
+        }
+
+        this.gridOverlay = document.createElement('canvas');
+        this.gridOverlay.width = this.canvas.width;
+        this.gridOverlay.height = this.canvas.height;
+        this.gridOverlay.style.position = 'absolute';
+        this.gridOverlay.style.top = '0';
+        this.gridOverlay.style.left = '0';
+        this.gridOverlay.style.pointerEvents = 'none'; // Не мешает событиям мыши
+        this.gridOverlay.style.zIndex = '9999'; // Всегда поверх
+        this.gridOverlay.style.transformOrigin = 'top left';
+        this.gridOverlayCtx = this.gridOverlay.getContext('2d');
+        this.gridOverlayCtx.scale(this.pixelRatio, this.pixelRatio);
+        this.drawGridOnCanvas(this.gridOverlayCtx);
+
+        // Добавляем overlay в контейнер canvas
+        container.appendChild(this.gridOverlay);
+
+        // Синхронизируем трансформацию с основным canvas
+        this.syncGridOverlayTransform();
+    },
+
+// Рисование сетки на отдельном canvas
+    drawGridOnCanvas(ctx) {
+        ctx.clearRect(0, 0, this.width, this.height);
+        ctx.save();
+        ctx.strokeStyle = '#e0e0e0';
+        ctx.lineWidth = 0.5 / this.pixelRatio;
+        
+        for (let i = 0; i <= this.width; i += 20) {
+            ctx.beginPath();
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i, this.height);
+            ctx.strokeStyle = i % 100 === 0 ? '#d0d0d0' : '#e8e8e8';
+            ctx.stroke();
+        }
+        
+        for (let i = 0; i <= this.height; i += 20) {
+            ctx.beginPath();
+            ctx.moveTo(0, i);
+            ctx.lineTo(this.width, i);
+            ctx.strokeStyle = i % 100 === 0 ? '#d0d0d0' : '#e8e8e8';
+            ctx.stroke();
+        }
+        ctx.restore();
+    },
+
+    // Переключение видимости сетки
+    toggleGrid() {
+        this.showGrid = !this.showGrid;
+        this.redraw();
+        return this.showGrid;
     },
 
     addLayer(name = null) {
@@ -97,7 +179,6 @@ const CanvasManager = {
         return this.layers[this.activeLayerIndex] || null;
     },
 
-    // Создать новый проект с заданными размерами и очистить все слои
     newProject(width, height) {
         this.width = Math.max(1, Math.floor(width));
         this.height = Math.max(1, Math.floor(height));
@@ -108,6 +189,9 @@ const CanvasManager = {
         this.canvas.style.height = `${this.height}px`;
         this.ctx = this.canvas.getContext('2d');
         this.ctx.scale(this.pixelRatio, this.pixelRatio);
+
+        // Пересоздаем canvas сетки
+        this.createGridCanvas();
 
         // сброс preview
         if (this.previewCanvas) {
@@ -121,6 +205,7 @@ const CanvasManager = {
         this.layers = [];
         this.addLayer('Фон');
         this.redraw();
+        
         // сбрасываем навигацию и историю
         if (NavigationManager) {
             NavigationManager.scale = 1;
@@ -136,44 +221,66 @@ const CanvasManager = {
         LayersManager?.updateLayersList();
     },
 
-    addObject(obj) {
-        if (!obj || !this.activeLayer) {
-            console.warn('Нет активного слоя или пустой объект');
+        addObject(obj) {
+        if (!obj) {
+            console.warn('Пустой объект');
+            return;
+        }
+        
+        // Защита от дублирования - проверяем, не добавлен ли уже этот объект
+        // Проверяем все слои на наличие такого же объекта (по ссылке)
+        let alreadyExists = false;
+        for (let layer of this.layers) {
+            if (layer.objects.includes(obj)) {
+                alreadyExists = true;
+                console.log('Объект уже существует в слое, пропускаем добавление');
+                break;
+            }
+        }
+        
+        if (alreadyExists) {
             return;
         }
 
-        this.activeLayer.objects.push(obj);
-
-        // Очищаем и перерисовываем все объекты слоя
-        this.activeLayer.ctx.clearRect(0, 0, this.width, this.height);
-        this.activeLayer.objects.forEach(o => this.drawSingleObject(this.activeLayer.ctx, o));
-
+        // Получаем название объекта
+        const typeName = LayersManager.getLayerTypeName(obj.type);
+        
+        // Создаём новый слой для этого объекта
+        const newLayer = this.addLayer(typeName);
+        
+        // Добавляем объект в новый слой
+        newLayer.objects.push(obj);
+        
+        // Сохраняем информацию об объекте для превью
+        newLayer.objectType = obj.type;
+        newLayer.needsThumbnailUpdate = true;
+        
+        // Рисуем объект на слое
+        this.drawSingleObject(newLayer.ctx, obj);
+        
+        // Обновляем основной холст
         this.redraw();
+        
+        // Обновляем список слоев
         LayersManager?.updateLayersList();
         HistoryManager?.saveState();
 
-        console.log(`Объект ${obj.type} добавлен в слой "${this.activeLayer.name}"`);
-        console.log('После добавления: объектов в слое', this.activeLayer.objects.length);
+        console.log(`Объект ${obj.type} добавлен в новый слой "${newLayer.name}"`);
     },
 
     redraw() {
         if (!this.ctx) return;
 
-        // Всегда рисуем белый фон, независимо от состояния слоев
+        // Рисуем содержимое слоёв
         this.ctx.clearRect(0, 0, this.width, this.height);
+        
+        // Белый фон для прозрачности слоёв
         this.ctx.fillStyle = '#ffffff';
         this.ctx.fillRect(0, 0, this.width, this.height);
 
-        this.drawGrid();
-
-        // Убеждаемся, что первый слой (Фон) всегда виден
+        // Рисуем все видимые слои
         this.layers.forEach((layer, index) => {
-            if (index === 0) {
-                // Первый слой (Фон) всегда видим
-                this.ctx.globalAlpha = layer.opacity;
-                this.ctx.drawImage(layer.canvas, 0, 0, this.width, this.height);
-            } else if (layer.visible) {
-                // Остальные слои показываются только если видимы
+            if (layer.visible) {
                 this.ctx.globalAlpha = layer.opacity;
                 this.ctx.drawImage(layer.canvas, 0, 0, this.width, this.height);
             }
@@ -181,36 +288,159 @@ const CanvasManager = {
 
         this.ctx.globalAlpha = 1;
 
+        // Рисуем сетку поверх слоёв (не влияет на данные слоёв)
+        if (this.showGrid && this.gridCanvas) {
+            this.ctx.globalCompositeOperation = 'source-over';
+            this.ctx.drawImage(this.gridCanvas, 0, 0, this.width, this.height);
+        }
+
         // Preview всегда поверх всего
         if (this.previewCanvas) {
             this.ctx.drawImage(this.previewCanvas, 0, 0, this.width, this.height);
         }
+
+        // Рисуем bounding box для выделенного объекта (только если инструмент select активен)
+        if (ToolsManager && ToolsManager.currentTool === 'select' && ToolsManager.selectedObject) {
+            this.drawSelectionBox(this.ctx, ToolsManager.selectedObject);
+        }
+        
+        // Сбрасываем композицию
+        this.ctx.globalCompositeOperation = 'source-over';
     },
 
-    drawGrid() {
-        const ctx = this.ctx;
+    // Вспомогательная: рисует клетчатый фон для показания прозрачности
+    drawCheckerboard(ctx, x, y, width, height, size = 8) {
+        const lightColor = '#f0f0f0';
+        const darkColor = '#d0d0d0';
+        
+        for (let i = x; i < x + width; i += size) {
+            for (let j = y; j < y + height; j += size) {
+                const isEven = ((i / size) + (j / size)) % 2 === 0;
+                ctx.fillStyle = isEven ? lightColor : darkColor;
+                ctx.fillRect(i, j, Math.min(size, x + width - i), Math.min(size, y + height - j));
+            }
+        }
+    },
+
+    // Метод для получения данных пикселей без сетки (для заливки и ластика)
+    getRawPixelData() {
+        // Создаем временный canvas только со слоями (без сетки)
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = this.canvas.width;
+        tempCanvas.height = this.canvas.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.scale(this.pixelRatio, this.pixelRatio);
+        
+        // Рисуем только содержимое слоёв
+        tempCtx.fillStyle = '#ffffff';
+        tempCtx.fillRect(0, 0, this.width, this.height);
+        
+        this.layers.forEach(layer => {
+            if (layer.visible) {
+                tempCtx.drawImage(layer.canvas, 0, 0, this.width, this.height);
+            }
+        });
+        
+        return tempCtx.getImageData(0, 0, this.width, this.height);
+    },
+
+    // Получить bounding box объекта
+    getObjectBounds(obj) {
+        if (!obj) return null;
+        
+        let minX, minY, maxX, maxY;
+        
+        if (obj.type === 'rect' || obj.type === 'circle' || obj.type === 'ellipse') {
+            minX = obj.x;
+            minY = obj.y;
+            maxX = obj.x + obj.width;
+            maxY = obj.y + obj.height;
+        } else if (obj.type === 'line') {
+            minX = Math.min(obj.x1, obj.x2);
+            minY = Math.min(obj.y1, obj.y2);
+            maxX = Math.max(obj.x1, obj.x2);
+            maxY = Math.max(obj.y1, obj.y2);
+        } else if (obj.type === 'path' || obj.type === 'pencil' || obj.type === 'eraser') {
+            if (obj.points && obj.points.length > 0) {
+                minX = Math.min(...obj.points.map(p => p.x));
+                minY = Math.min(...obj.points.map(p => p.y));
+                maxX = Math.max(...obj.points.map(p => p.x));
+                maxY = Math.max(...obj.points.map(p => p.y));
+            } else return null;
+        } else if (obj.type === 'polygon') {
+            if (obj.points && obj.points.length >= 3) {
+                minX = Math.min(...obj.points.map(p => p.x));
+                minY = Math.min(...obj.points.map(p => p.y));
+                maxX = Math.max(...obj.points.map(p => p.x));
+                maxY = Math.max(...obj.points.map(p => p.y));
+            } else return null;
+        } else if (obj.type === 'text') {
+            minX = obj.x;
+            minY = obj.y;
+            maxX = obj.x + (obj.width || 100);
+            maxY = obj.y + (obj.height || 20);
+        } else if (obj.type === 'arrow') {
+            minX = obj.x;
+            minY = obj.y;
+            maxX = obj.x + (obj.width || 50);
+            maxY = obj.y + (obj.height || 50);
+        }
+        
+        return {
+            x: minX,
+            y: minY,
+            width: maxX - minX,
+            height: maxY - minY,
+            minX: minX,
+            minY: minY,
+            maxX: maxX,
+            maxY: maxY
+        };
+    },
+
+    // Нарисовать bounding box и handles для выделенного объекта
+    drawSelectionBox(ctx, obj) {
+        if (!obj) return;
+        
+        const bounds = this.getObjectBounds(obj);
+        if (!bounds) return;
+        
+        const handleSize = 8;
+        const padding = 4;
+        
         ctx.save();
-        ctx.strokeStyle = '#e0e0e0';
-        ctx.lineWidth = 0.5 / this.pixelRatio;
         
-        for (let i = 0; i <= this.width; i += 20) {
-            ctx.beginPath();
-            ctx.moveTo(i, 0);
-            ctx.lineTo(i, this.height);
-            ctx.strokeStyle = i % 100 === 0 ? '#d0d0d0' : '#e8e8e8';
-            ctx.stroke();
-        }
+        // Рамка выделения
+        ctx.strokeStyle = '#0066cc';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.strokeRect(bounds.x - padding, bounds.y - padding, bounds.width + padding * 2, bounds.height + padding * 2);
+        ctx.setLineDash([]);
         
-        for (let i = 0; i <= this.height; i += 20) {
-            ctx.beginPath();
-            ctx.moveTo(0, i);
-            ctx.lineTo(this.width, i);
-            ctx.strokeStyle = i % 100 === 0 ? '#d0d0d0' : '#e8e8e8';
-            ctx.stroke();
-        }
+        // Handles для изменения размера
+        const handles = [
+            { x: bounds.x - padding, y: bounds.y - padding, cursor: 'nw-resize' },
+            { x: bounds.x + bounds.width / 2, y: bounds.y - padding, cursor: 'n-resize' },
+            { x: bounds.x + bounds.width + padding, y: bounds.y - padding, cursor: 'ne-resize' },
+            { x: bounds.x + bounds.width + padding, y: bounds.y + bounds.height / 2, cursor: 'e-resize' },
+            { x: bounds.x + bounds.width + padding, y: bounds.y + bounds.height + padding, cursor: 'se-resize' },
+            { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height + padding, cursor: 's-resize' },
+            { x: bounds.x - padding, y: bounds.y + bounds.height + padding, cursor: 'sw-resize' },
+            { x: bounds.x - padding, y: bounds.y + bounds.height / 2, cursor: 'w-resize' }
+        ];
+        
+        // Рисуем handles
+        ctx.fillStyle = '#0066cc';
+        handles.forEach(handle => {
+            ctx.fillRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize);
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize);
+        });
+        
         ctx.restore();
     },
-           
+
     drawSingleObject(ctx, obj) {
         ctx.save();
 
@@ -219,8 +449,9 @@ const CanvasManager = {
         ctx.lineWidth  = obj.strokeWidth || 2;
         ctx.lineJoin   = 'round';
         ctx.lineCap    = 'round';
+        ctx.lineJoin   = 'round';
+        ctx.lineCap    = 'round';
 
-        // ── здесь вся твоя логика отрисовки разных типов ──
         if (obj.type === 'path' || obj.type === 'pencil' || obj.type === 'eraser') {
             if (obj.points && obj.points.length > 0) {
                 ctx.beginPath();
@@ -228,7 +459,14 @@ const CanvasManager = {
                 for (let i = 1; i < obj.points.length; i++) {
                     ctx.lineTo(obj.points[i].x, obj.points[i].y);
                 }
-                ctx.stroke();
+                if (obj.tool === 'eraser') {
+                    // Ластик стирает (делает прозрачными) пиксели
+                    ctx.globalCompositeOperation = 'destination-out';
+                    ctx.stroke();
+                    ctx.globalCompositeOperation = 'source-over';
+                } else {
+                    ctx.stroke();
+                }
             }
         } else if (obj.type === 'line') {
             ctx.beginPath();
@@ -246,41 +484,32 @@ const CanvasManager = {
             if (obj.fillColor && obj.fillColor !== 'transparent' && obj.fillColor !== '#00000000') ctx.fill();
             ctx.stroke();
         } else if (obj.type === 'polygon') {
-    if (obj.points && obj.points.length >= 3) {
-        ctx.beginPath();
-        ctx.moveTo(obj.points[0].x, obj.points[0].y);
-        for (let i = 1; i < obj.points.length; i++) {
-            ctx.lineTo(obj.points[i].x, obj.points[i].y);
-        }
-        ctx.closePath();
+            if (obj.points && obj.points.length >= 3) {
+                ctx.beginPath();
+                ctx.moveTo(obj.points[0].x, obj.points[0].y);
+                for (let i = 1; i < obj.points.length; i++) {
+                    ctx.lineTo(obj.points[i].x, obj.points[i].y);
+                }
+                ctx.closePath();
 
-        if (obj.fillColor) {
-            ctx.fillStyle = obj.fillColor;
-            ctx.fill();
-        }
-        if (obj.strokeColor) {
-            ctx.strokeStyle = obj.strokeColor;
-            ctx.lineWidth = obj.strokeWidth || 2;
-            ctx.stroke();
-        }
-    }
+                if (obj.fillColor && obj.fillColor !== 'transparent' && obj.fillColor !== '#00000000') {
+                    ctx.fill();
+                }
+                if (obj.strokeColor) {
+                    ctx.stroke();
+                }
+            }
         } else if (obj.type === 'arrow') {
             this.drawArrow(ctx, obj);
         } else if (obj.type === 'text') {
             ctx.font = `${obj.fontSize || 16}px ${obj.fontFamily || 'Arial'}`;
             ctx.fillStyle = obj.fillColor || '#000000';
             ctx.fillText(obj.text, obj.x, obj.y + (obj.fontSize || 16));
-        } else if (obj.type === 'imageData') {
-            // Используем кешированное изображение для избежания проблем с асинхронной загрузкой
-            if (obj.cachedImage && obj.cachedImage.complete) {
-                ctx.drawImage(obj.cachedImage, 0, 0, this.width, this.height);
-            }
         }
 
         ctx.restore();
     },
     
-    // Метод для рисования стрелок
     drawArrow(ctx, obj) {
         const x = obj.x;
         const y = obj.y;
@@ -299,7 +528,6 @@ const CanvasManager = {
                 ctx.lineTo(x + w - h/2, y + h);
                 ctx.lineTo(x, y + h);
                 break;
-                
             case 'left':
                 ctx.moveTo(x + w, y);
                 ctx.lineTo(x + h/2, y);
@@ -309,7 +537,6 @@ const CanvasManager = {
                 ctx.lineTo(x + h/2, y + h);
                 ctx.lineTo(x + w, y + h);
                 break;
-                
             case 'up':
                 ctx.moveTo(x, y + h);
                 ctx.lineTo(x, y + h/2);
@@ -319,7 +546,6 @@ const CanvasManager = {
                 ctx.lineTo(x + w, y + h/2);
                 ctx.lineTo(x + w, y + h);
                 break;
-                
             case 'down':
                 ctx.moveTo(x, y);
                 ctx.lineTo(x, y + h/2);
@@ -359,7 +585,7 @@ const CanvasManager = {
         return exCanvas;
     },
 
-        clear() {
+    clear() {
         this.layers = [];
         this.addLayer("Фон");
         this.redraw();

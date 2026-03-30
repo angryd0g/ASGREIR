@@ -31,6 +31,11 @@ body {
     background: var(--bg-primary);
     color: var(--text-primary);
     overflow: hidden;
+    touch-action: manipulation;
+}
+
+html {
+    touch-action: manipulation;
 }
 
 

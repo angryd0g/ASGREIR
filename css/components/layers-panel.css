@@ -93,6 +93,7 @@
     transition: all 0.2s;
     border: 1px solid transparent;
     user-select: none;
+    gap: 8px;
 }
 
 .layer-item:hover {
@@ -110,40 +111,42 @@
     color: white;
 }
 
-/* Иконка слоя (зависит от типа объекта) */
-.layer-icon {
-    width: 24px;
-    height: 24px;
+/* Thumbnail слоя - мини превью содержимого */
+.layer-thumbnail {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background-color: #222;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.5);
+    transition: all 0.2s;
+}
+
+.layer-item:hover .layer-thumbnail {
+    transform: scale(1.05);
+    border-color: var(--accent);
+}
+
+.layer-item.active .layer-thumbnail {
+    border-color: rgba(255, 255, 255, 0.8);
+    box-shadow: 0 0 8px rgba(74, 144, 226, 0.5);
+}
+
+.layer-type {
+    font-size: 10px;
+    opacity: 0.7;
+    margin-top: 2px;
     display: flex;
     align-items: center;
-    justify-content: center;
-    margin-right: 10px;
-    color: var(--text-secondary);
-    font-size: 14px;
+    gap: 4px;
 }
 
-.layer-item.active .layer-icon {
-    color: white;
-}
-
-/* Иконки для разных типов объектов */
-.layer-icon.rect {
-    color: #4a90e2;
-}
-.layer-icon.circle {
-    color: #e24a90;
-}
-.layer-icon.line {
-    color: #90e24a;
-}
-.layer-icon.polygon {
-    color: #e2b04a;
-}
-.layer-icon.text {
-    color: #b04ae2;
-}
-.layer-icon.image {
-    color: #4ae2b0;
+.layer-type i {
+    font-size: 8px;
 }
 
 /* Информация о слое */
@@ -161,17 +164,6 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-}
-
-.layer-type {
-    font-size: 10px;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-}
-
-.layer-item.active .layer-type {
-    color: rgba(255, 255, 255, 0.8);
 }
 
 /* Действия со слоем */

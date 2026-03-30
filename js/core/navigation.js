@@ -3,6 +3,9 @@ const NavigationManager = {
     scale: 1,          // текущий масштаб (1 = 100%)
     offsetX: 0,        // смещение по X (в координатах canvas без масштаба)
     offsetY: 0,        // смещение по Y
+    uiScale: 1,        // масштаб всего интерфейса приложения
+    minUIScale: 0.5,   // минимальный масштаб UI
+    maxUIScale: 2,     // максимальный масштаб UI
     isPanning: false,
     lastPanX: 0,
     lastPanY: 0,
@@ -10,27 +13,37 @@ const NavigationManager = {
     maxScale: 10,
     container: null,
     canvas: null,
+    appElement: null,  // корневой элемент приложения для масштабирования UI
     animationFrame: null,  // для плавной анимации
     momentumX: 0,      // инерция по X
     momentumY: 0,      // инерция по Y
     momentumDecay: 0.95, // коэффициент затухания инерции
     lastUpdateTime: 0, // для throttling при больших масштабах
+    lastMouseX: 0,     // последняя позиция мыши
+    lastMouseY: 0,     // последняя позиция мыши
     
     init(containerElement, canvasElement) {
         this.container = containerElement;
         this.canvas = canvasElement;
+        this.appElement = document.querySelector('.app');
         this.setupNavigation();
+        this.setupMouseTracking();
+    },
+    
+    setupMouseTracking() {
+        document.addEventListener('mousemove', (e) => {
+            this.lastMouseX = e.clientX;
+            this.lastMouseY = e.clientY;
+        });
     },
     
     setupNavigation() {
         document.getElementById('zoomIn').addEventListener('click', () => {
-            this.scale *= 1.2;
-            this.updateZoom();
+            this.zoomTowardsMouse(1.2);
         });
         
         document.getElementById('zoomOut').addEventListener('click', () => {
-            this.scale /= 1.2;
-            this.updateZoom();
+            this.zoomTowardsMouse(1 / 1.2);
         });
         
         document.getElementById('fitView').addEventListener('click', () => {
@@ -39,6 +52,74 @@ const NavigationManager = {
             this.offsetY = 0;
             this.updateZoom();
         });
+
+        // Слушатель Ctrl+Scroll на всем окне (включая пространство за холстом)
+        window.addEventListener('wheel', (e) => {
+            if (e.ctrlKey && !e.altKey) {
+                e.preventDefault();
+                this.handleWheel(e);
+            } else if (e.altKey && !e.ctrlKey) {
+                // Alt+Scroll - масштабирование всего UI
+                e.preventDefault();
+                this.handleUIZoom(e);
+            }
+        }, { passive: false });
+
+        // Дополнительный слушатель на document в capture phase для более раннего перехвата браузерного масштабирования
+        document.addEventListener('wheel', (e) => {
+            if (e.altKey && !e.ctrlKey) {
+                e.preventDefault();
+            }
+        }, { passive: false, capture: true });
+    },
+
+    handleUIZoom(e) {
+        // Масштабирование всего интерфейса приложения
+        const delta = -Math.sign(e.deltaY) * 0.05;
+        const newUIScale = this.uiScale * (1 + delta);
+        this.uiScale = Helpers.clamp(newUIScale, this.minUIScale, this.maxUIScale);
+        
+        // Применяем масштаб к корневому элементу приложения
+        if (this.appElement) {
+            this.appElement.style.transform = `scale(${this.uiScale})`;
+            this.appElement.style.transformOrigin = 'top left';
+            this.appElement.style.willChange = 'transform';
+        }
+    },
+
+    resetUIZoom() {
+        this.uiScale = 1;
+        if (this.appElement) {
+            this.appElement.style.transform = `scale(1)`;
+        }
+    },
+    
+
+    zoomTowardsMouse(factor) {
+        // Получаем позицию мыши относительно canvas
+        const rect = this.canvas.getBoundingClientRect();
+        let mouseX = this.lastMouseX - rect.left;
+        let mouseY = this.lastMouseY - rect.top;
+        
+        // Если курсор вне canvas, зумируем к центру
+        if (mouseX < 0 || mouseX > rect.width || mouseY < 0 || mouseY > rect.height) {
+            mouseX = rect.width / 2;
+            mouseY = rect.height / 2;
+        }
+        
+        // Вычисляем позицию курсора в координатах холста
+        const contentX = (mouseX - this.offsetX) / this.scale;
+        const contentY = (mouseY - this.offsetY) / this.scale;
+        
+        // Применяем масштаб
+        const newScale = Helpers.clamp(this.scale * factor, this.minScale, this.maxScale);
+        
+        // Корректируем смещение, чтобы зум происходил к курсору
+        this.offsetX = mouseX - contentX * newScale;
+        this.offsetY = mouseY - contentY * newScale;
+        
+        this.scale = newScale;
+        this.updateZoom();
     },
     
     updateZoom() {
@@ -50,12 +131,24 @@ const NavigationManager = {
         this.canvas.style.willChange = 'transform';
         
         document.getElementById('zoomLevel').textContent = Math.round(this.scale * 100) + '%';
+
+        // Синхронизируем overlay сетки
+        if (CanvasManager && CanvasManager.syncGridOverlayTransform) {
+            CanvasManager.syncGridOverlayTransform();
+        }
     },
     
     handleWheel(e) {
+        if (!e.ctrlKey) {
+            // Плавная прокрутка без масштабирования
+            const scrollSpeed = 0.5;
+            this.offsetY += e.deltaY * scrollSpeed;
+            return;
+        }
+
         e.preventDefault();
         
-        // Останавливаем инерцию при зуме или прокрутке
+        // Останавливаем инерцию при зуме
         this.momentumX = 0;
         this.momentumY = 0;
         if (this.animationFrame) {
@@ -63,29 +156,29 @@ const NavigationManager = {
             this.animationFrame = null;
         }
         
-        if (e.ctrlKey) {
-            // Плавный зум с учетом позиции курсора
-            const rect = this.canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-            
-            // Вычисляем позицию курсора относительно содержимого холста
-            const contentX = mouseX / this.scale;
-            const contentY = mouseY / this.scale;
-            
-            // Изменяем масштаб
-            const delta = -Math.sign(e.deltaY) * 0.1;
-            const newScale = this.scale * (1 + delta);
-            this.scale = Helpers.clamp(newScale, 0.1, 9);
-            
-            // Корректируем смещение, чтобы зум происходил относительно курсора
-            this.offsetX = mouseX - contentX * this.scale;
-            this.offsetY = mouseY - contentY * this.scale;
-        } else {
-            // Плавная прокрутка
-            const scrollSpeed = 0.5;
-            this.offsetY += e.deltaY * scrollSpeed;
+        // Плавный зум с учетом позиции курсора
+        const rect = this.canvas.getBoundingClientRect();
+        let mouseX = e.clientX - rect.left;
+        let mouseY = e.clientY - rect.top;
+        
+        // Если курсор вне canvas, зумируем к центру
+        if (mouseX < 0 || mouseX > rect.width || mouseY < 0 || mouseY > rect.height) {
+            mouseX = rect.width / 2;
+            mouseY = rect.height / 2;
         }
+        
+        // Вычисляем позицию курсора в координатах холста
+        const contentX = (mouseX - this.offsetX) / this.scale;
+        const contentY = (mouseY - this.offsetY) / this.scale;
+        
+        // Изменяем масштаб
+        const delta = -Math.sign(e.deltaY) * 0.1;
+        const newScale = this.scale * (1 + delta);
+        this.scale = Helpers.clamp(newScale, this.minScale, this.maxScale);
+        
+        // Корректируем смещение, чтобы зум происходил относительно курсора
+        this.offsetX = mouseX - contentX * this.scale;
+        this.offsetY = mouseY - contentY * this.scale;
         
         this.updateZoom();
     },

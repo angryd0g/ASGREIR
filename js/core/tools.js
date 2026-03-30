@@ -6,10 +6,21 @@ const ToolsManager = {
     strokeWidth: 2,
     fontSize: 16,
     isDrawing: false,
+    isMoving: false,              // флаг перемещения выделенного объекта
+    isResizing: false,            // флаг изменения размера
+    resizingHandle: null,         // какой handle используется для resize
+    moveStartX: 0,                // начальная позиция мыши при перемещении
+    moveStartY: 0,                // начальная позиция мыши при перемещении
+    moveObjectStartX: 0,          // начальная позиция объекта
+    moveObjectStartY: 0,          // начальная позиция объекта
+    objectStartBounds: null,      // исходные границы объекта при resize
+    moveObjectSnapshot: null,     // снимок объекта при начале перемещения
     startX: 0,
     startY: 0,
     textInput: null,
     selectedObject: null,
+    allObjectsSelected: false,    // флаг для "выбрать все"
+    selectedObjects: [],          // массив всех выбранных объектов
     currentPath: null,
     
     init() {
@@ -197,8 +208,54 @@ const ToolsManager = {
     
     startDrawing(x, y) {
         if (this.currentTool === 'select') {
-            this.selectedObject = this.findObjectAt(x, y);
-            CanvasManager.redraw();
+            // Если уже выбран объект, проверяем нажали ли на handle
+            if (this.selectedObject) {
+                const handle = this.getHandleAtPoint(x, y, this.selectedObject);
+                if (handle) {
+                    // Начинаем resize
+                    this.isResizing = true;
+                    this.resizingHandle = handle;
+                    this.moveStartX = x;
+                    this.moveStartY = y;
+                    this.objectStartBounds = CanvasManager.getObjectBounds(this.selectedObject);
+                    console.log('startDrawing: начало resize, handle=', handle);
+                    return false;
+                }
+            }
+            
+            // Проверяем нажали ли на выделенный объект для перемещения
+            const objAtClick = this.findObjectAt(x, y);
+            console.log('startDrawing select: объект найден?', !!objAtClick, 'выбранный объект=', !!this.selectedObject, 'совпадает?', objAtClick === this.selectedObject);
+            
+            if (objAtClick && objAtClick === this.selectedObject) {
+                // Уже выделен, начинаем перемещение
+                this.isMoving = true;
+                this.isResizing = false; // Убедимся, что resize не активен
+                this.moveStartX = x;
+                this.moveStartY = y;
+                
+                // Используем bounds для получения начальной позиции объекта
+                const bounds = CanvasManager.getObjectBounds(objAtClick);
+                if (bounds) {
+                    this.moveObjectStartX = bounds.x;
+                    this.moveObjectStartY = bounds.y;
+                } else {
+                    this.moveObjectStartX = objAtClick.x || 0;
+                    this.moveObjectStartY = objAtClick.y || 0;
+                }
+                
+                // Сохраняем снимок объекта для правильного перемещения
+                this.moveObjectSnapshot = JSON.parse(JSON.stringify(objAtClick));
+                
+                console.log('startDrawing: начало MOVE, координаты:', { moveStartX: x, moveStartY: y, boundsX: this.moveObjectStartX, boundsY: this.moveObjectStartY });
+            } else {
+                // Выделяем новый объект
+                console.log('startDrawing select: ВЫБИРАЕМ новый объект', !!objAtClick);
+                this.selectedObject = objAtClick;
+                this.isMoving = false;
+                this.isResizing = false;
+                CanvasManager.redraw();
+            }
             return false;
         }
         
@@ -226,7 +283,7 @@ const ToolsManager = {
             this.currentPath = {
                 type: 'path',
                 points: [{x, y}],
-                strokeColor: this.currentTool === 'eraser' ? '#ffffff' : this.strokeColor,
+                strokeColor: this.strokeColor,
                 strokeWidth: this.strokeWidth,
                 tool: this.currentTool
             };
@@ -236,7 +293,89 @@ const ToolsManager = {
     },
     
     drawTemporary(ctx, x, y) {
-        if (!this.isDrawing) return;
+        if (!this.isDrawing && !this.isMoving && !this.isResizing) return;
+        
+        // Для select инструмента - перемещение объекта
+        if (this.currentTool === 'select' && this.isMoving && this.selectedObject) {
+            if (!this.moveObjectSnapshot) return;
+            
+            const deltaX = x - this.moveStartX;
+            const deltaY = y - this.moveStartY;
+            
+            console.log('drawTemporary MOVE: delta=', { deltaX, deltaY }, 'объект тип=', this.selectedObject.type);
+            
+            // Восстанавливаем исходное состояние из snapshot и применяем смещение
+            const snapshot = this.moveObjectSnapshot;
+            
+            // Перемещаем объект в зависимости от его типа
+            if (snapshot.type === 'path' || snapshot.type === 'pencil' || snapshot.type === 'eraser') {
+                // Для путей - копируем точки из snapshot и смещаем
+                if (snapshot.points && snapshot.points.length > 0) {
+                    this.selectedObject.points = snapshot.points.map(p => ({
+                        x: p.x + deltaX,
+                        y: p.y + deltaY
+                    }));
+                }
+            } else if (snapshot.type === 'polygon') {
+                // Для полигонов - копируем точки из snapshot и смещаем
+                if (snapshot.points && snapshot.points.length > 0) {
+                    this.selectedObject.points = snapshot.points.map(p => ({
+                        x: p.x + deltaX,
+                        y: p.y + deltaY
+                    }));
+                }
+            } else if (snapshot.type === 'line' || snapshot.type === 'arrow') {
+                // Для линий - копируем координаты из snapshot и смещаем
+                this.selectedObject.x1 = (snapshot.x1 || 0) + deltaX;
+                this.selectedObject.y1 = (snapshot.y1 || 0) + deltaY;
+                this.selectedObject.x2 = (snapshot.x2 || 0) + deltaX;
+                this.selectedObject.y2 = (snapshot.y2 || 0) + deltaY;
+            } else {
+                // Для остальных (rect, circle, text, и т.д.) - копируем из snapshot и смещаем
+                if (snapshot.x !== undefined) {
+                    this.selectedObject.x = this.moveObjectStartX + deltaX;
+                }
+                if (snapshot.y !== undefined) {
+                    this.selectedObject.y = this.moveObjectStartY + deltaY;
+                }
+            }
+            
+            // Перерисовываем слой без очистки
+            this.updateObjectInLayer(this.selectedObject);
+            CanvasManager.redraw();
+            return;
+        }
+        
+        // Для select инструмента - изменение размера объекта
+        if (this.currentTool === 'select' && this.isResizing && this.selectedObject && this.objectStartBounds) {
+            const deltaX = x - this.moveStartX;
+            const deltaY = y - this.moveStartY;
+            const bounds = this.objectStartBounds;
+            let newBounds = { ...bounds };
+            
+            const handleResizeOffset = 8; // минимальный размер
+            
+            if (this.resizingHandle.includes('w')) {
+                newBounds.minX = Math.min(bounds.minX + deltaX, bounds.maxX - handleResizeOffset);
+            }
+            if (this.resizingHandle.includes('e')) {
+                newBounds.maxX = Math.max(bounds.maxX + deltaX, bounds.minX + handleResizeOffset);
+            }
+            if (this.resizingHandle.includes('n')) {
+                newBounds.minY = Math.min(bounds.minY + deltaY, bounds.maxY - handleResizeOffset);
+            }
+            if (this.resizingHandle.includes('s')) {
+                newBounds.maxY = Math.max(bounds.maxY + deltaY, bounds.minY + handleResizeOffset);
+            }
+            
+            // Применяем новые размеры к объекту
+            this.applyBoundsToObject(this.selectedObject, newBounds);
+            
+            // Перерисовываем слой
+            this.updateObjectInLayer(this.selectedObject);
+            CanvasManager.redraw();
+            return;
+        }
         
         if (this.currentTool === 'pencil' || this.currentTool === 'eraser') {
             // Для карандаша используем инкрементальную отрисовку
@@ -267,15 +406,25 @@ const ToolsManager = {
                 const distance = Math.sqrt(Math.pow(x - lastPoint.x, 2) + Math.pow(y - lastPoint.y, 2));
                 
                 if (distance > 2) {
-                    // Рисуем линию от последней точки к новой
-                    ctx.strokeStyle = this.currentPath.strokeColor;
                     ctx.lineWidth = this.currentPath.strokeWidth;
                     ctx.lineJoin = 'round';
                     ctx.lineCap = 'round';
-                    ctx.beginPath();
-                    ctx.moveTo(lastPoint.x, lastPoint.y);
-                    ctx.lineTo(x, y);
-                    ctx.stroke();
+                    
+                    if (this.currentTool === 'eraser') {
+                        // Для ластика: показываем полупрозрачный белый штрих (preview стирания)
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+                        ctx.beginPath();
+                        ctx.moveTo(lastPoint.x, lastPoint.y);
+                        ctx.lineTo(x, y);
+                        ctx.stroke();
+                    } else {
+                        // Для карандаша: обычный цветной штрих
+                        ctx.strokeStyle = this.currentPath.strokeColor;
+                        ctx.beginPath();
+                        ctx.moveTo(lastPoint.x, lastPoint.y);
+                        ctx.lineTo(x, y);
+                        ctx.stroke();
+                    }
                     
                     // Добавляем точку к пути
                     this.currentPath.points.push({x, y});
@@ -286,6 +435,23 @@ const ToolsManager = {
     
     stopDrawing(x, y) {
     console.log('stopDrawing вызван, isDrawing=', this.isDrawing, 'tool=', this.currentTool);
+    
+    // Завершение перемещения объекта
+    if (this.isMoving) {
+        this.isMoving = false;
+        this.moveObjectSnapshot = null; // Очищаем снимок
+        HistoryManager?.saveState();
+        return null;
+    }
+    
+    // Завершение изменения размера объекта
+    if (this.isResizing) {
+        this.isResizing = false;
+        this.resizingHandle = null;
+        this.objectStartBounds = null;
+        HistoryManager?.saveState();
+        return null;
+    }
     
     if (!this.isDrawing) {
         console.log('Рисование не активно, выходим');
@@ -326,20 +492,26 @@ const ToolsManager = {
             obj = null;
         }
         
-        // Если объект создан, добавляем его сразу здесь для теста
+        // ========== ЗДЕСЬ ЗАМЕНЯЕМ КОД ==========
         if (obj) {
             console.log('СОЗДАН ОБЪЕКТ ТИПА:', obj.type);
-            console.log('Детали объекта:', JSON.stringify(obj));
             
-            // Временно добавляем объект напрямую в CanvasManager
-            if (CanvasManager && CanvasManager.objects) {
-                CanvasManager.objects.push(obj);
-                CanvasManager.redraw();
-                console.log('Объект ДОБАВЛЕН напрямую. Всего объектов:', CanvasManager.objects.length);
+            // Добавляем объект через CanvasManager.addObject (который создаст новый слой)
+            if (CanvasManager && CanvasManager.addObject) {
+                CanvasManager.addObject(obj);
+                console.log('Объект ДОБАВЛЕН в новый слой. Тип:', obj.type);
+            } else {
+                // Fallback если addObject не существует
+                console.warn('CanvasManager.addObject не найден, использую старый метод');
+                if (CanvasManager && CanvasManager.objects) {
+                    CanvasManager.objects.push(obj);
+                    CanvasManager.redraw();
+                }
             }
         } else {
             console.log('Объект НЕ создан');
         }
+        // ========== КОНЕЦ ЗАМЕНЫ ==========
     }
     
     this.isDrawing = false;
@@ -349,10 +521,25 @@ const ToolsManager = {
 },
     
     findObjectAt(x, y) {
-        // ... (оставляем существующий код)
-        for (let i = CanvasManager.objects.length - 1; i >= 0; i--) {
-            const obj = CanvasManager.objects[i];
-            
+        // Проверяем наличие объектов через CanvasManager
+        let objects = [];
+
+        if (CanvasManager.objects && Array.isArray(CanvasManager.objects)) {
+            objects = CanvasManager.objects;
+        } else if (CanvasManager.layers && Array.isArray(CanvasManager.layers)) {
+            // Собираем из всех видимых слоёв, если объекты хранятся по слоям
+            for (let layer of CanvasManager.layers) {
+                if (layer && Array.isArray(layer.objects)) {
+                    objects = objects.concat(layer.objects);
+                }
+            }
+        }
+
+        for (let i = objects.length - 1; i >= 0; i--) {
+            const obj = objects[i];
+
+            if (!obj) continue;
+
             if (obj.type === 'rect' || obj.type === 'circle' || obj.type === 'ellipse') {
                 if (x >= obj.x && x <= obj.x + obj.width && 
                     y >= obj.y && y <= obj.y + obj.height) {
@@ -496,6 +683,36 @@ const ToolsManager = {
         CanvasManager.redraw();
         HistoryManager?.saveState();
     },
+
+    // Выбрать все объекты на холсте
+    selectAllObjects() {
+        this.selectedObjects = [];
+        CanvasManager.layers.forEach(layer => {
+            if (layer.visible) {
+                this.selectedObjects.push(...layer.objects);
+            }
+        });
+        this.allObjectsSelected = this.selectedObjects.length > 0;
+        CanvasManager.redraw();
+        return this.selectedObjects;
+    },
+
+    // Обновить позицию объекта в слое
+    updateObjectInLayer(obj) {
+    for (let i = 0; i < CanvasManager.layers.length; i++) {
+        const layer = CanvasManager.layers[i];
+        const index = layer.objects.indexOf(obj);
+        if (index !== -1) {
+            // Перерисовываем только этот слой
+            layer.ctx.clearRect(0, 0, CanvasManager.width, CanvasManager.height);
+            layer.objects.forEach(o => CanvasManager.drawSingleObject(layer.ctx, o));
+            
+            // Помечаем слой для обновления миниатюры
+            LayersManager.invalidateLayerThumbnail(i);
+            break;
+        }
+    }
+},
     
     hexToRgb(hex) {
         const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -698,5 +915,85 @@ const ToolsManager = {
     
     colorToHex(rgb) {
         return '#' + ((1 << 24) + (rgb[0] << 16) + (rgb[1] << 8) + rgb[2]).toString(16).slice(1);
+    },
+    
+    getHandleAtPoint(x, y, obj) {
+        const bounds = CanvasManager.getObjectBounds(obj);
+        const handleSize = 10; // размер области клика вокруг handle
+        
+        if (!bounds) return null;
+        
+        // Координаты всех 8 handle'ов
+        const handles = {
+            'nw': { x: bounds.minX, y: bounds.minY },
+            'n': { x: (bounds.minX + bounds.maxX) / 2, y: bounds.minY },
+            'ne': { x: bounds.maxX, y: bounds.minY },
+            'e': { x: bounds.maxX, y: (bounds.minY + bounds.maxY) / 2 },
+            'se': { x: bounds.maxX, y: bounds.maxY },
+            's': { x: (bounds.minX + bounds.maxX) / 2, y: bounds.maxY },
+            'sw': { x: bounds.minX, y: bounds.maxY },
+            'w': { x: bounds.minX, y: (bounds.minY + bounds.maxY) / 2 }
+        };
+        
+        // Проверяем расстояние до каждого handle'а
+        for (const [name, pos] of Object.entries(handles)) {
+            const dist = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
+            if (dist <= handleSize) {
+                return name;
+            }
+        }
+        
+        return null;
+    },
+    
+    applyBoundsToObject(obj, newBounds) {
+        const oldBounds = CanvasManager.getObjectBounds(obj);
+        if (!oldBounds) return;
+        
+        const oldWidth = oldBounds.maxX - oldBounds.minX;
+        const oldHeight = oldBounds.maxY - oldBounds.minY;
+        const newWidth = newBounds.maxX - newBounds.minX;
+        const newHeight = newBounds.maxY - newBounds.minY;
+        
+        // Предотвращаем деление на ноль
+        const scaleX = oldWidth !== 0 ? newWidth / oldWidth : 1;
+        const scaleY = oldHeight !== 0 ? newHeight / oldHeight : 1;
+        
+        // Применяем трансформацию в зависимости от типа объекта
+        if (obj.type === 'rect' || obj.type === 'ellipse' || obj.type === 'circle') {
+            obj.x = newBounds.minX;
+            obj.y = newBounds.minY;
+            obj.width = newWidth;
+            obj.height = newHeight;
+        } else if (obj.type === 'line' || obj.type === 'arrow') {
+            // Масштабируем координаты линии относительно старых границ
+            obj.x1 = newBounds.minX + (obj.x1 - oldBounds.minX) * scaleX;
+            obj.y1 = newBounds.minY + (obj.y1 - oldBounds.minY) * scaleY;
+            obj.x2 = newBounds.minX + (obj.x2 - oldBounds.minX) * scaleX;
+            obj.y2 = newBounds.minY + (obj.y2 - oldBounds.minY) * scaleY;
+        } else if (obj.type === 'polygon') {
+            // Масштабируем и смещаем точки многоугольника
+            if (obj.points && obj.points.length > 0) {
+                obj.points = obj.points.map(p => ({
+                    x: newBounds.minX + (p.x - oldBounds.minX) * scaleX,
+                    y: newBounds.minY + (p.y - oldBounds.minY) * scaleY
+                }));
+            }
+        } else if (obj.type === 'path') {
+            // Масштабируем и смещаем точки пути
+            if (obj.points && obj.points.length > 0) {
+                obj.points = obj.points.map(p => ({
+                    x: newBounds.minX + (p.x - oldBounds.minX) * scaleX,
+                    y: newBounds.minY + (p.y - oldBounds.minY) * scaleY
+                }));
+            }
+        } else if (obj.type === 'text') {
+            obj.x = newBounds.minX;
+            obj.y = newBounds.minY;
+            // Масштабируем размер шрифта
+            if (obj.fontSize) {
+                obj.fontSize = Math.max(8, obj.fontSize * Math.max(scaleX, scaleY));
+            }
+        }
     }
 };

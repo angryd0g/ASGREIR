@@ -72,6 +72,14 @@ document.addEventListener('DOMContentLoaded', () => {
             link.href = exportCanvas.toDataURL('image/png');
             link.click();
         }
+
+        if (e.ctrlKey && e.key === 'a') {
+            e.preventDefault();
+            // Сначала активируем инструмент選択 (select)
+            document.querySelector('[data-tool="select"]').click();
+            // Затем выбираем все объекты
+            ToolsManager.selectAllObjects();
+        }
     });
 
     function onMouseDown(e) {
@@ -90,6 +98,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const pos = Helpers.getCanvasCoordinates(e, canvas, NavigationManager.scale);
             if (ToolsManager.startDrawing(pos.x, pos.y)) {
                 CanvasManager.redraw();
+            }
+            // Установить grabbing курсор при начале перемещения
+            if (ToolsManager.isMoving) {
+                canvas.style.cursor = 'grabbing';
             }
         }
     }
@@ -120,17 +132,33 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (!ToolsManager.isDrawing) return;
-
         const pos = Helpers.getCanvasCoordinates(e, canvas, NavigationManager.scale);
+
+        // Обновляем курсор для select инструмента
+        if (ToolsManager.currentTool === 'select') {
+            updateCursorForSelect(pos.x, pos.y);
+            // Для select выходим только если нет активного движения
+            if (!ToolsManager.isMoving && !ToolsManager.isResizing) return;
+        } else {
+            // Для других инструментов нужно активное рисование
+            if (!ToolsManager.isDrawing && !ToolsManager.isMoving && !ToolsManager.isResizing) return;
+        }
 
         let shouldRedraw = false;
 
-        // Для карандаша и ластика не очищаем preview на каждом движении - рисуем инкрементально
-        if (ToolsManager.currentTool === 'pencil' || ToolsManager.currentTool === 'eraser') {
+        // Перемещение выделенного объекта (select инструмент)
+        if (ToolsManager.currentTool === 'select' && ToolsManager.isMoving) {
+            ToolsManager.drawTemporary(null, pos.x, pos.y);
+            shouldRedraw = true;
+        } else if (ToolsManager.currentTool === 'select' && ToolsManager.isResizing) {
+            // Изменение размера выделенного объекта
+            ToolsManager.drawTemporary(null, pos.x, pos.y);
+            shouldRedraw = true;
+        } else if (ToolsManager.currentTool === 'pencil' || ToolsManager.currentTool === 'eraser') {
+            // Для карандаша и ластика не очищаем preview на каждом движении - рисуем инкрементально
             ToolsManager.drawTemporaryIncremental(CanvasManager.previewCtx, pos.x, pos.y);
             shouldRedraw = true;
-        } else {
+        } else if (ToolsManager.isDrawing) {
             // Очищаем предыдущий preview для фигур
             if (CanvasManager.previewCtx) {
                 CanvasManager.previewCtx.clearRect(0, 0, CanvasManager.width, CanvasManager.height);
@@ -140,6 +168,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (shouldRedraw) scheduleRedraw();
+    }
+
+    function updateCursorForSelect(x, y) {
+        if (!ToolsManager.selectedObject) {
+            canvas.style.cursor = 'crosshair';
+            return;
+        }
+
+        // Проверяем, над каким handle находится курсор
+        const handle = ToolsManager.getHandleAtPoint(x, y, ToolsManager.selectedObject);
+        
+        if (handle) {
+            // Устанавливаем соответствующий cursor для resize
+            const cursorMap = {
+                'nw': 'nwse-resize',
+                'n': 'ns-resize',
+                'ne': 'nesw-resize',
+                'e': 'ew-resize',
+                'se': 'nwse-resize',
+                's': 'ns-resize',
+                'sw': 'nesw-resize',
+                'w': 'ew-resize'
+            };
+            canvas.style.cursor = cursorMap[handle] || 'default';
+        } else {
+            // Проверяем, находимся ли над выбранным объектом
+            const objAtCursor = ToolsManager.findObjectAt(x, y);
+            if (objAtCursor === ToolsManager.selectedObject) {
+                canvas.style.cursor = 'grab';
+            } else {
+                canvas.style.cursor = 'crosshair';
+            }
+        }
     }
 
     function onMouseUp(e) {
@@ -167,6 +228,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     obj.type === 'polygon' || obj.type === 'arrow' ||
                     (obj.width > 2 && obj.height > 2)) {
                     CanvasManager.addObject(obj);
+                }
+            }
+
+            // Восстанавливаем правильный курсор для select инструмента
+            if (ToolsManager.currentTool === 'select') {
+                if (ToolsManager.selectedObject) {
+                    canvas.style.cursor = 'grab';
+                } else {
+                    canvas.style.cursor = 'crosshair';
                 }
             }
 
@@ -214,4 +284,32 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
+    // Добавьте после инициализации всех менеджеров, перед закрывающей скобкой DOMContentLoaded
+
+// Переключение сетки
+const toggleGridBtn = document.getElementById('toggleGrid');
+if (toggleGridBtn) {
+    toggleGridBtn.addEventListener('click', () => {
+        const isVisible = CanvasManager.toggleGrid();
+        // Меняем иконку кнопки
+        const icon = toggleGridBtn.querySelector('i');
+        if (icon) {
+            if (isVisible) {
+                icon.className = 'fas fa-border-all';
+                toggleGridBtn.title = 'Скрыть сетку';
+            } else {
+                icon.className = 'fas fa-border-none';
+                toggleGridBtn.title = 'Показать сетку';
+            }
+        }
+    });
+    
+    // Устанавливаем начальное состояние иконки
+    const icon = toggleGridBtn.querySelector('i');
+    if (icon && CanvasManager.showGrid !== undefined) {
+        icon.className = CanvasManager.showGrid ? 'fas fa-border-all' : 'fas fa-border-none';
+        toggleGridBtn.title = CanvasManager.showGrid ? 'Скрыть сетку' : 'Показать сетку';
+    }
+}
+
 });
