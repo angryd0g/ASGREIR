@@ -1,5 +1,11 @@
 // Управление инструментами
 const ToolsManager = {
+    isDrawingTextArea: false,
+    textAreaStartX: 0,
+    textAreaStartY: 0,
+    textAreaWidth: 0,
+    textAreaHeight: 0,
+    textAreaObject: null,
     currentTool: 'select',
     strokeColor: '#000000',
     fillColor: '#4a90e2',
@@ -18,6 +24,9 @@ const ToolsManager = {
     startX: 0,
     startY: 0,
     textInput: null,
+    textInputX: 0,
+    textInputY: 0,
+    editingTextObject: null,
     selectedObject: null,
     allObjectsSelected: false,    // флаг для "выбрать все"
     selectedObjects: [],          // массив всех выбранных объектов
@@ -46,8 +55,7 @@ const ToolsManager = {
         });
     },
     
-    activateTool(btn) {
-        // Убираем активный класс со всех кнопок
+        activateTool(btn) {
         document.querySelectorAll('.tool-btn, .shape-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         this.currentTool = btn.dataset.tool;
@@ -58,19 +66,29 @@ const ToolsManager = {
             fontSizeGroup.style.display = this.currentTool === 'text' ? 'block' : 'none';
         }
         
+        // При выборе инструмента "Текст" снимаем выделение
+        if (this.currentTool === 'text') {
+            this.selectedObject = null;
+            CanvasManager.redraw();
+        }
+        
         // Снимаем выделение при смене инструмента
         if (this.currentTool !== 'select') {
             this.selectedObject = null;
         }
     },
     
-    setupProperties() {
+        setupProperties() {
         const strokeColorInput = document.getElementById('stroke-color');
         if (strokeColorInput) {
             strokeColorInput.addEventListener('change', (e) => {
                 this.strokeColor = e.target.value;
                 const colorValue = document.querySelector('.color-input .color-value');
                 if (colorValue) colorValue.textContent = this.strokeColor;
+                // Обновляем выбранный текст если есть
+                if (this.selectedObject && this.selectedObject.type === 'text') {
+                    this.updateTextProperties();
+                }
             });
         }
         
@@ -78,6 +96,9 @@ const ToolsManager = {
         if (fillColorInput) {
             fillColorInput.addEventListener('change', (e) => {
                 this.fillColor = e.target.value;
+                if (this.selectedObject && this.selectedObject.type === 'text') {
+                    this.updateTextProperties();
+                }
             });
         }
         
@@ -87,6 +108,9 @@ const ToolsManager = {
                 this.strokeWidth = parseInt(e.target.value);
                 const strokeValue = document.getElementById('stroke-width-value');
                 if (strokeValue) strokeValue.textContent = this.strokeWidth + 'px';
+                if (this.selectedObject && this.selectedObject.type === 'text') {
+                    this.updateTextProperties();
+                }
             });
         }
         
@@ -96,8 +120,69 @@ const ToolsManager = {
                 this.fontSize = parseInt(e.target.value);
                 const fontSizeValue = document.getElementById('font-size-value');
                 if (fontSizeValue) fontSizeValue.textContent = this.fontSize + 'px';
+                if (this.selectedObject && this.selectedObject.type === 'text') {
+                    this.updateTextProperties();
+                }
             });
         }
+    },  
+
+        drawTextAreaPreview(ctx, x, y) {
+        if (!this.isDrawingTextArea) return;
+        
+        const width = x - this.textAreaStartX;
+        const height = y - this.textAreaStartY;
+        
+        if (Math.abs(width) < 5 || Math.abs(height) < 5) return;
+        
+        ctx.save();
+        ctx.strokeStyle = '#0066cc';
+        ctx.fillStyle = 'rgba(0, 102, 204, 0.1)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        
+        const rectX = width > 0 ? this.textAreaStartX : x;
+        const rectY = height > 0 ? this.textAreaStartY : y;
+        const rectW = Math.abs(width);
+        const rectH = Math.abs(height);
+        
+        ctx.fillRect(rectX, rectY, rectW, rectH);
+        ctx.strokeRect(rectX, rectY, rectW, rectH);
+        ctx.restore();
+    },
+
+        showTextInputForArea(x, y, width, height) {
+        console.log('showTextInputForArea вызван', { x, y, width, height });
+        
+        const canvas = document.getElementById('drawCanvas');
+        if (!canvas) return;
+        
+        const rect = canvas.getBoundingClientRect();
+        const container = document.getElementById('canvasContainer');
+        const scale = NavigationManager ? NavigationManager.scale : 1;
+        const offsetX = NavigationManager ? NavigationManager.offsetX : 0;
+        const offsetY = NavigationManager ? NavigationManager.offsetY : 0;
+        
+        // Учитываем масштаб и панорамирование
+        const screenX = rect.left + (x - offsetX) * scale;
+        const screenY = rect.top + (y - offsetY) * scale;
+        const screenWidth = width * scale;
+        const screenHeight = height * scale;
+        
+        this.textInput.style.left = screenX + 'px';
+        this.textInput.style.top = screenY + 'px';
+        this.textInput.style.width = screenWidth + 'px';
+        this.textInput.style.height = screenHeight + 'px';
+        this.textInput.style.display = 'block';
+        this.textInput.style.fontSize = Math.max(12, (height * 0.7)) + 'px';
+        this.textInput.value = '';
+        this.textInput.focus();
+        
+        this.textInputX = x;
+        this.textInputY = y;
+        this.textInputWidth = width;
+        this.textInputHeight = height;
+        this.editingTextObject = null;
     },
     
     setupTextInput() {
@@ -106,7 +191,8 @@ const ToolsManager = {
         this.textInput.className = 'text-input-temp';
         this.textInput.style.position = 'absolute';
         this.textInput.style.display = 'none';
-        this.textInput.style.zIndex = '1000';
+        this.textInput.style.zIndex = '10001';
+        this.textInput.style.width = '220px';
         this.textInput.style.padding = '4px 8px';
         this.textInput.style.fontFamily = 'Arial, sans-serif';
         this.textInput.style.border = '2px solid var(--accent)';
@@ -118,14 +204,18 @@ const ToolsManager = {
         document.body.appendChild(this.textInput);
         
         this.textInput.addEventListener('keydown', (e) => {
+            console.log('Text input keydown:', e.key);
             if (e.key === 'Enter') {
+                console.log('Enter нажат, завершаем ввод текста');
                 this.finishTextInput();
             } else if (e.key === 'Escape') {
+                console.log('Escape нажат, отмена ввода');
                 this.cancelTextInput();
             }
         });
         
         this.textInput.addEventListener('blur', () => {
+            console.log('Text input blur, завершаем ввод');
             this.finishTextInput();
         });
     },
@@ -206,7 +296,7 @@ const ToolsManager = {
         });
     },
     
-    startDrawing(x, y) {
+    startDrawing(x, y, clientX, clientY) {
         if (this.currentTool === 'select') {
             // Если уже выбран объект, проверяем нажали ли на handle
             if (this.selectedObject) {
@@ -259,14 +349,18 @@ const ToolsManager = {
             return false;
         }
         
-        if (this.currentTool === 'text') {
-            this.startTextInput(x, y);
-            return false;
-        }
+            if (this.currentTool === 'text') {
+            console.log('Text tool: начало рисования области');
+            this.isDrawingTextArea = true;
+            this.textAreaStartX = x;
+            this.textAreaStartY = y;
+            this.isDrawing = true;
+            return true;
+       }   
         
-        if (this.currentTool === 'fill') {
-            this.performFill(x, y);
-            return false;
+            if (this.currentTool === 'fill') {
+                this.performFill(x, y);
+                return false;
         }
         
         this.isDrawing = true;
@@ -293,8 +387,12 @@ const ToolsManager = {
     },
     
     drawTemporary(ctx, x, y) {
-        if (!this.isDrawing && !this.isMoving && !this.isResizing) return;
-        
+        if (!this.isDrawing && !this.isMoving && !this.isResizing && !this.isDrawingTextArea) return;
+
+            if (this.currentTool === 'text' && this.isDrawingTextArea) {
+            this.drawTextAreaPreview(ctx, x, y);
+            return;
+        }
         // Для select инструмента - перемещение объекта
         if (this.currentTool === 'select' && this.isMoving && this.selectedObject) {
             if (!this.moveObjectSnapshot) return;
@@ -433,92 +531,126 @@ const ToolsManager = {
         }
     },
     
-    stopDrawing(x, y) {
-    console.log('stopDrawing вызван, isDrawing=', this.isDrawing, 'tool=', this.currentTool);
-    
-    // Завершение перемещения объекта
-    if (this.isMoving) {
-        this.isMoving = false;
-        this.moveObjectSnapshot = null; // Очищаем снимок
-        HistoryManager?.saveState();
-        return null;
-    }
-    
-    // Завершение изменения размера объекта
-    if (this.isResizing) {
-        this.isResizing = false;
-        this.resizingHandle = null;
-        this.objectStartBounds = null;
-        HistoryManager?.saveState();
-        return null;
-    }
-    
-    if (!this.isDrawing) {
-        console.log('Рисование не активно, выходим');
-        return null;
-    }
-    
-    let obj = null;
-    
-    if (this.currentTool === 'pencil' || this.currentTool === 'eraser') {
-        console.log('Обработка карандаша/ластика');
-        if (this.currentPath && this.currentPath.points.length > 1) {
-            obj = this.currentPath;
-            console.log('Создан путь с точками:', this.currentPath.points.length);
-        } else {
-            console.log('Путь слишком короткий');
-        }
-        this.currentPath = null;
-    } else {
-        // Используем ShapesManager для создания фигуры
-        console.log('Создаем фигуру через ShapesManager, инструмент:', this.currentTool);
+        stopDrawing(x, y) {
+        console.log('stopDrawing вызван, isDrawing=', this.isDrawing, 'tool=', this.currentTool);
         
-        try {
-            obj = ShapesManager.createShape(
-                this.currentTool,
-                this.startX,
-                this.startY,
-                x,
-                y,
-                this.strokeColor,
-                this.fillColor,
-                this.strokeWidth
-            );
-            
-            console.log('Результат createShape:', obj ? 'объект создан' : 'null', obj);
-            
-        } catch (error) {
-            console.error('Ошибка при создании фигуры:', error);
-            obj = null;
+        // Завершение перемещения объекта
+        if (this.isMoving) {
+            this.isMoving = false;
+            this.moveObjectSnapshot = null; // Очищаем снимок
+            HistoryManager?.saveState();
+            return null;
         }
         
-        // ========== ЗДЕСЬ ЗАМЕНЯЕМ КОД ==========
-        if (obj) {
-            console.log('СОЗДАН ОБЪЕКТ ТИПА:', obj.type);
+        // Завершение изменения размера объекта
+        if (this.isResizing) {
+            this.isResizing = false;
+            this.resizingHandle = null;
+            this.objectStartBounds = null;
+            HistoryManager?.saveState();
+            return null;
+        }
+
+        // Завершение выделения области для текста
+        if (this.currentTool === 'text' && this.isDrawingTextArea) {
+            this.isDrawingTextArea = false;
             
-            // Добавляем объект через CanvasManager.addObject (который создаст новый слой)
-            if (CanvasManager && CanvasManager.addObject) {
-                CanvasManager.addObject(obj);
-                console.log('Объект ДОБАВЛЕН в новый слой. Тип:', obj.type);
-            } else {
-                // Fallback если addObject не существует
-                console.warn('CanvasManager.addObject не найден, использую старый метод');
-                if (CanvasManager && CanvasManager.objects) {
-                    CanvasManager.objects.push(obj);
-                    CanvasManager.redraw();
-                }
+            const width = x - this.textAreaStartX;
+            const height = y - this.textAreaStartY;
+            
+            if (Math.abs(width) > 10 && Math.abs(height) > 10) {
+                // Создаем временный объект текста с областью
+                const rectX = width > 0 ? this.textAreaStartX : x;
+                const rectY = height > 0 ? this.textAreaStartY : y;
+                const rectW = Math.abs(width);
+                const rectH = Math.abs(height);
+                
+                this.textAreaObject = {
+                    type: 'text',
+                    text: '',
+                    x: rectX,
+                    y: rectY,
+                    width: rectW,
+                    height: rectH,
+                    fontSize: Math.max(12, rectH * 0.7),
+                    fontFamily: 'Arial',
+                    strokeColor: this.strokeColor,
+                    fillColor: this.fillColor,
+                    strokeWidth: this.strokeWidth
+                };
+                
+                // Показываем input для ввода текста
+                this.showTextInputForArea(rectX, rectY, rectW, rectH);
             }
-        } else {
-            console.log('Объект НЕ создан');
+            
+            this.isDrawing = false;
+            return null;
         }
-        // ========== КОНЕЦ ЗАМЕНЫ ==========
-    }
-    
-    this.isDrawing = false;
-    console.log('Рисование завершено, возвращаем obj:', obj ? 'да' : 'нет');
-    
-    return obj;
-},
+        
+        if (!this.isDrawing) {
+            console.log('Рисование не активно, выходим');
+            return null;
+        }
+        
+        let obj = null;
+        
+        if (this.currentTool === 'pencil' || this.currentTool === 'eraser') {
+            console.log('Обработка карандаша/ластика');
+            if (this.currentPath && this.currentPath.points.length > 1) {
+                obj = this.currentPath;
+                console.log('Создан путь с точками:', this.currentPath.points.length);
+            } else {
+                console.log('Путь слишком короткий');
+            }
+            this.currentPath = null;
+        } else {
+            // Используем ShapesManager для создания фигуры
+            console.log('Создаем фигуру через ShapesManager, инструмент:', this.currentTool);
+            
+            try {
+                obj = ShapesManager.createShape(
+                    this.currentTool,
+                    this.startX,
+                    this.startY,
+                    x,
+                    y,
+                    this.strokeColor,
+                    this.fillColor,
+                    this.strokeWidth
+                );
+                
+                console.log('Результат createShape:', obj ? 'объект создан' : 'null', obj);
+                
+            } catch (error) {
+                console.error('Ошибка при создании фигуры:', error);
+                obj = null;
+            }
+            
+            if (obj) {
+                console.log('СОЗДАН ОБЪЕКТ ТИПА:', obj.type);
+                
+                // Добавляем объект через CanvasManager.addObject (который создаст новый слой)
+                if (CanvasManager && CanvasManager.addObject) {
+                    CanvasManager.addObject(obj);
+                    console.log('Объект ДОБАВЛЕН в новый слой. Тип:', obj.type);
+                } else {
+                    // Fallback если addObject не существует
+                    console.warn('CanvasManager.addObject не найден, использую старый метод');
+                    if (CanvasManager && CanvasManager.objects) {
+                        CanvasManager.objects.push(obj);
+                        CanvasManager.redraw();
+                    }
+                }
+            } else {
+                console.log('Объект НЕ создан');
+            }
+        }
+        
+        this.isDrawing = false;
+        console.log('Рисование завершено, возвращаем obj:', obj ? 'да' : 'нет');
+        
+        return obj;
+    },
     
     findObjectAt(x, y) {
         // Проверяем наличие объектов через CanvasManager
@@ -874,43 +1006,144 @@ const ToolsManager = {
         ctx.putImageData(imageData, 0, 0);
     },
     
-    startTextInput(x, y) {
-        this.textInput.style.left = (x + 10) + 'px';
-        this.textInput.style.top = (y + 10) + 'px';
+        startTextInput(x, y, clientX, clientY) {
+        console.log('startTextInput вызван:', { x, y, clientX, clientY });
+        const clickedObj = this.findObjectAt(x, y);
+        let screenX;
+        let screenY;
+
+        if (typeof clientX === 'number' && typeof clientY === 'number') {
+            screenX = clientX;
+            screenY = clientY;
+            console.log('Использую экранные координаты:', { screenX, screenY });
+        } else {
+            const canvas = document.getElementById('drawCanvas');
+            if (canvas) {
+                const rect = canvas.getBoundingClientRect();
+                screenX = rect.left + x * (rect.width / CanvasManager.width);
+                screenY = rect.top + y * (rect.height / CanvasManager.height);
+                console.log('Вычисляю экранные координаты:', { screenX, screenY });
+            } else {
+                screenX = x;
+                screenY = y;
+                console.log('Canvas не найден');
+            }
+        }
+
+        if (clickedObj && clickedObj.type === 'text') {
+            console.log('Редактируем существующий текст');
+            this.editingTextObject = clickedObj;
+            this.textInput.style.left = (screenX + 10) + 'px';
+            this.textInput.style.top = (screenY + 10) + 'px';
+            this.textInput.value = clickedObj.text || '';
+            this.textInputX = clickedObj.x;
+            this.textInputY = clickedObj.y;
+            // Устанавливаем размер шрифта из объекта
+            this.fontSize = clickedObj.fontSize || 16;
+            document.getElementById('font-size').value = this.fontSize;
+            document.getElementById('font-size-value').textContent = this.fontSize + 'px';
+        } else {
+            console.log('Создаем новый текст');
+            this.editingTextObject = null;
+            this.textInput.style.left = (screenX + 10) + 'px';
+            this.textInput.style.top = (screenY + 10) + 'px';
+            this.textInput.value = '';
+            this.textInputX = x;
+            this.textInputY = y;
+        }
         this.textInput.style.display = 'block';
         this.textInput.style.fontSize = this.fontSize + 'px';
-        this.textInput.value = '';
         this.textInput.focus();
-        
-        this.textInputX = x;
-        this.textInputY = y;
     },
     
-    finishTextInput() {
+            finishTextInput() {
+        console.log('finishTextInput вызван, текст:', this.textInput.value);
         const text = this.textInput.value.trim();
+        
         if (text && text.length > 0) {
-            const obj = {
-                type: 'text',
-                text: text,
-                x: this.textInputX,
-                y: this.textInputY,
-                fontSize: this.fontSize,
-                fontFamily: 'Arial',
-                strokeColor: this.strokeColor,
-                fillColor: this.fillColor,
-                width: text.length * this.fontSize * 0.6,
-                height: this.fontSize * 1.2
-            };
-            
-            CanvasManager.addObject(obj);
+            if (this.editingTextObject && this.editingTextObject.type === 'text') {
+                // Редактирование существующего текста
+                const obj = this.editingTextObject;
+                obj.text = text;
+                obj.fontSize = this.fontSize;
+                obj.fontFamily = 'Arial';
+                obj.strokeColor = this.strokeColor;
+                obj.fillColor = this.fillColor;
+                obj.strokeWidth = this.strokeWidth;
+                
+                // Обновляем размеры текста
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.font = `${obj.fontSize}px ${obj.fontFamily}`;
+                const metrics = tempCtx.measureText(obj.text);
+                obj.width = metrics.width;
+                obj.height = obj.fontSize * 1.2;
+                
+                this.updateObjectInLayer(obj);
+                
+                // Обновляем имя слоя
+                for (let layer of CanvasManager.layers) {
+                    if (layer.objects.includes(obj)) {
+                        layer.name = text.length > 20 ? text.slice(0, 20) + '...' : text;
+                        layer.objectType = obj.type;
+                        layer.needsThumbnailUpdate = true;
+                        break;
+                    }
+                }
+                
+                LayersManager.updateLayersList();
+                CanvasManager.redraw();
+                HistoryManager?.saveState();
+            } else if (this.textAreaObject) {
+                // Создание нового текста из выделенной области
+                const obj = this.textAreaObject;
+                obj.text = text;
+                
+                // Пересчитываем размеры текста
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.font = `${obj.fontSize}px ${obj.fontFamily}`;
+                const metrics = tempCtx.measureText(text);
+                obj.width = metrics.width;
+                obj.height = obj.fontSize * 1.2;
+                
+                // Центрируем текст в выделенной области
+                obj.x = this.textInputX + (this.textInputWidth - obj.width) / 2;
+                obj.y = this.textInputY + (this.textInputHeight - obj.height) / 2;
+                
+                CanvasManager.addObject(obj);
+                this.textAreaObject = null;
+            }
         }
         
         this.cancelTextInput();
+    },
+
+        updateTextProperties() {
+        if (this.selectedObject && this.selectedObject.type === 'text') {
+            this.selectedObject.fontSize = this.fontSize;
+            this.selectedObject.fillColor = this.fillColor;
+            this.selectedObject.strokeColor = this.strokeColor;
+            this.selectedObject.strokeWidth = this.strokeWidth;
+            
+            // Обновляем размеры текста
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.font = `${this.fontSize}px ${this.selectedObject.fontFamily || 'Arial'}`;
+            const metrics = tempCtx.measureText(this.selectedObject.text);
+            this.selectedObject.width = metrics.width;
+            this.selectedObject.height = this.fontSize * 1.2;
+            
+            this.updateObjectInLayer(this.selectedObject);
+            CanvasManager.redraw();
+            HistoryManager?.saveState();
+        }
     },
     
     cancelTextInput() {
         this.textInput.style.display = 'none';
         this.textInput.value = '';
+        this.editingTextObject = null;
     },
     
     colorToHex(rgb) {
@@ -945,8 +1178,8 @@ const ToolsManager = {
         
         return null;
     },
-    
-    applyBoundsToObject(obj, newBounds) {
+        
+        applyBoundsToObject(obj, newBounds) {
         const oldBounds = CanvasManager.getObjectBounds(obj);
         if (!oldBounds) return;
         
@@ -966,13 +1199,11 @@ const ToolsManager = {
             obj.width = newWidth;
             obj.height = newHeight;
         } else if (obj.type === 'line' || obj.type === 'arrow') {
-            // Масштабируем координаты линии относительно старых границ
             obj.x1 = newBounds.minX + (obj.x1 - oldBounds.minX) * scaleX;
             obj.y1 = newBounds.minY + (obj.y1 - oldBounds.minY) * scaleY;
             obj.x2 = newBounds.minX + (obj.x2 - oldBounds.minX) * scaleX;
             obj.y2 = newBounds.minY + (obj.y2 - oldBounds.minY) * scaleY;
         } else if (obj.type === 'polygon') {
-            // Масштабируем и смещаем точки многоугольника
             if (obj.points && obj.points.length > 0) {
                 obj.points = obj.points.map(p => ({
                     x: newBounds.minX + (p.x - oldBounds.minX) * scaleX,
@@ -980,7 +1211,6 @@ const ToolsManager = {
                 }));
             }
         } else if (obj.type === 'path') {
-            // Масштабируем и смещаем точки пути
             if (obj.points && obj.points.length > 0) {
                 obj.points = obj.points.map(p => ({
                     x: newBounds.minX + (p.x - oldBounds.minX) * scaleX,
@@ -988,12 +1218,20 @@ const ToolsManager = {
                 }));
             }
         } else if (obj.type === 'text') {
+            // Для текста изменяем только позицию (не масштабируем шрифт при resize)
+            // При resize текста - меняем размер шрифта
+            const avgScale = (scaleX + scaleY) / 2;
+            obj.fontSize = Math.max(8, Math.min(72, (obj.fontSize || 16) * avgScale));
             obj.x = newBounds.minX;
             obj.y = newBounds.minY;
-            // Масштабируем размер шрифта
-            if (obj.fontSize) {
-                obj.fontSize = Math.max(8, obj.fontSize * Math.max(scaleX, scaleY));
-            }
+            
+            // Пересчитываем размеры текста
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.font = `${obj.fontSize}px ${obj.fontFamily || 'Arial'}`;
+            const metrics = tempCtx.measureText(obj.text);
+            obj.width = metrics.width;
+            obj.height = obj.fontSize * 1.2;
         }
     }
 };

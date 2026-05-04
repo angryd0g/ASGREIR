@@ -244,9 +244,12 @@ const CanvasManager = {
 
         // Получаем название объекта
         const typeName = LayersManager.getLayerTypeName(obj.type);
+        const layerName = obj.type === 'text'
+            ? (obj.text ? obj.text.slice(0, 30) : 'Текст')
+            : typeName;
         
         // Создаём новый слой для этого объекта
-        const newLayer = this.addLayer(typeName);
+        const newLayer = this.addLayer(layerName);
         
         // Добавляем объект в новый слой
         newLayer.objects.push(obj);
@@ -501,13 +504,32 @@ const CanvasManager = {
             }
         } else if (obj.type === 'arrow') {
             this.drawArrow(ctx, obj);
+        // В методе drawSingleObject замените блок с text на:
         } else if (obj.type === 'text') {
+            ctx.save();
             ctx.font = `${obj.fontSize || 16}px ${obj.fontFamily || 'Arial'}`;
             ctx.fillStyle = obj.fillColor || '#000000';
+            ctx.strokeStyle = obj.strokeColor || '#000000';
+            ctx.lineWidth = obj.strokeWidth || 1;
+            
+            // Измеряем текст для правильного bounding box
+            const metrics = ctx.measureText(obj.text);
+            const textWidth = metrics.width;
+            const textHeight = (obj.fontSize || 16) * 1.2;
+            
+            // Обновляем width/height объекта для корректного выделения
+            obj.width = textWidth;
+            obj.height = textHeight;
+            
+            // Рисуем обводку если есть и она не прозрачная
+            if (obj.strokeColor && obj.strokeColor !== 'transparent' && obj.strokeColor !== '#00000000') {
+                ctx.strokeText(obj.text, obj.x, obj.y + (obj.fontSize || 16));
+            }
+            
+            // Рисуем заливку
             ctx.fillText(obj.text, obj.x, obj.y + (obj.fontSize || 16));
+            ctx.restore();
         }
-
-        ctx.restore();
     },
     
     drawArrow(ctx, obj) {

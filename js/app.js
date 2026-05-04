@@ -1,4 +1,3 @@
-// Главный файл приложения
 document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('drawCanvas');
     const container = document.getElementById('canvasContainer');
@@ -82,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    function onMouseDown(e) {
+        function onMouseDown(e) {
         if (e.button === 2) { // правая кнопка — панорамирование
             e.preventDefault();
             isRightButtonPanning = true;
@@ -96,16 +95,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.button === 0) {
             if (NavigationManager.isPanning) return;
             const pos = Helpers.getCanvasCoordinates(e, canvas, NavigationManager.scale);
-            if (ToolsManager.startDrawing(pos.x, pos.y)) {
+            
+            // startDrawing возвращает true только для инструментов, которые рисуют (прямоугольник, круг, линия, карандаш)
+            // Для текста и заливки возвращает false
+            const started = ToolsManager.startDrawing(pos.x, pos.y, e.clientX, e.clientY);
+            
+            if (started) {
+                // Только если рисование началось, перерисовываем
                 CanvasManager.redraw();
             }
+            
             // Установить grabbing курсор при начале перемещения
             if (ToolsManager.isMoving) {
                 canvas.style.cursor = 'grabbing';
             }
         }
     }
-
+    
     // Флаг для запроса перерисовки в next animation frame
     let pendingRedraw = false;
 
@@ -133,7 +139,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const pos = Helpers.getCanvasCoordinates(e, canvas, NavigationManager.scale);
-
+     
+        // Для текстового инструмента показываем preview области
+        if (ToolsManager.currentTool === 'text' && ToolsManager.isDrawingTextArea) {
+            ToolsManager.drawTemporary(CanvasManager.previewCtx, pos.x, pos.y);
+            scheduleRedraw();
+            return;
+        }
+            
         // Обновляем курсор для select инструмента
         if (ToolsManager.currentTool === 'select') {
             updateCursorForSelect(pos.x, pos.y);
@@ -203,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function onMouseUp(e) {
+        function onMouseUp(e) {
         if (e.button === 2) {
             isRightButtonPanning = false;
             container.classList.remove('panning');
@@ -216,6 +229,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (NavigationManager.isPanning || isRightButtonPanning) return;
 
             const pos = Helpers.getCanvasCoordinates(e, canvas, NavigationManager.scale);
+            
+            // stopDrawing будет возвращать объект только если действительно что-то рисовали
             const obj = ToolsManager.stopDrawing(pos.x, pos.y);
 
             // Очищаем preview перед добавлением финального объекта
@@ -287,29 +302,29 @@ document.addEventListener('DOMContentLoaded', () => {
     // Добавьте после инициализации всех менеджеров, перед закрывающей скобкой DOMContentLoaded
 
 // Переключение сетки
-const toggleGridBtn = document.getElementById('toggleGrid');
-if (toggleGridBtn) {
-    toggleGridBtn.addEventListener('click', () => {
-        const isVisible = CanvasManager.toggleGrid();
-        // Меняем иконку кнопки
-        const icon = toggleGridBtn.querySelector('i');
-        if (icon) {
-            if (isVisible) {
-                icon.className = 'fas fa-border-all';
-                toggleGridBtn.title = 'Скрыть сетку';
-            } else {
-                icon.className = 'fas fa-border-none';
-                toggleGridBtn.title = 'Показать сетку';
+        const toggleGridBtn = document.getElementById('toggleGrid');
+        if (toggleGridBtn) {
+            toggleGridBtn.addEventListener('click', () => {
+                const isVisible = CanvasManager.toggleGrid();
+                // Меняем иконку кнопки
+                const icon = toggleGridBtn.querySelector('i');
+                if (icon) {
+                    if (isVisible) {
+                        icon.className = 'fas fa-border-all';
+                        toggleGridBtn.title = 'Скрыть сетку';
+                    } else {
+                        icon.className = 'fas fa-border-none';
+                        toggleGridBtn.title = 'Показать сетку';
+                    }
+                }
+            });
+            
+            // Устанавливаем начальное состояние иконки
+            const icon = toggleGridBtn.querySelector('i');
+            if (icon && CanvasManager.showGrid !== undefined) {
+                icon.className = CanvasManager.showGrid ? 'fas fa-border-all' : 'fas fa-border-none';
+                toggleGridBtn.title = CanvasManager.showGrid ? 'Скрыть сетку' : 'Показать сетку';
             }
         }
-    });
-    
-    // Устанавливаем начальное состояние иконки
-    const icon = toggleGridBtn.querySelector('i');
-    if (icon && CanvasManager.showGrid !== undefined) {
-        icon.className = CanvasManager.showGrid ? 'fas fa-border-all' : 'fas fa-border-none';
-        toggleGridBtn.title = CanvasManager.showGrid ? 'Скрыть сетку' : 'Показать сетку';
     }
-}
-
-});
+);
