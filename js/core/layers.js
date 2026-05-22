@@ -35,6 +35,7 @@ const LayersManager = {
                     }
                     layer.visible = !layer.visible;
                     this.updateLayersList(); // Обновляем отображение
+                    CanvasManager.compositeDirty = true;
                     CanvasManager.redraw();
                 } else if (e.target.closest('.layer-lock')) {
                     const layer = CanvasManager.layers[idx];
@@ -384,6 +385,7 @@ const LayersManager = {
             }
 
             this.updateLayersList();
+            CanvasManager.compositeDirty = true;
             CanvasManager.redraw();
             HistoryManager?.saveState();
         });

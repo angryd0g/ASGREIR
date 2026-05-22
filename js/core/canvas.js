@@ -7,10 +7,25 @@ const CanvasManager = {
     gridCtx: null,         // Контекст для сетки
     layers: [],
     activeLayerIndex: 0,
-    width: 1200,
-    height: 800,
+    width: 1920,
+    height: 1080,
+    defaultWidth: 1920,
+    defaultHeight: 1080,
     pixelRatio: window.devicePixelRatio || 1,
     showGrid: true,        // Показывать ли сетку
+    compositeCanvas: null,
+    compositeCtx: null,
+    compositeDirty: true,
+    _rafPending: false,
+
+    scheduleRedraw() {
+        if (this._rafPending) return;
+        this._rafPending = true;
+        requestAnimationFrame(() => {
+            this._rafPending = false;
+            this.redraw();
+        });
+    },
 
     init(canvasElement) {
         this.canvas = canvasElement;
@@ -33,8 +48,20 @@ const CanvasManager = {
     
     setupHighResCanvas() {
         const container = this.canvas.parentElement;
-        this.width = Math.min(1200, container.clientWidth * 0.8);
-        this.height = Math.min(800, container.clientHeight * 0.8);
+        const aspectRatio = this.defaultWidth / this.defaultHeight;
+        const availableWidth = container ? Math.max(1, container.clientWidth * 0.95) : this.defaultWidth;
+        const availableHeight = container ? Math.max(1, container.clientHeight * 0.95) : this.defaultHeight;
+
+        let targetWidth = Math.min(this.defaultWidth, availableWidth);
+        let targetHeight = Math.round(targetWidth / aspectRatio);
+
+        if (targetHeight > availableHeight) {
+            targetHeight = Math.min(this.defaultHeight, Math.round(availableHeight));
+            targetWidth = Math.round(targetHeight * aspectRatio);
+        }
+
+        this.width = Math.max(1, targetWidth);
+        this.height = Math.max(1, targetHeight);
 
         this.canvas.width = this.width * this.pixelRatio;
         this.canvas.height = this.height * this.pixelRatio;
@@ -45,6 +72,7 @@ const CanvasManager = {
 
         // Пересоздаем canvas сетки при изменении размера
         this.createGridCanvas();
+        this.createCompositeCanvas();
 
         // Пересоздание слоёв
         this.layers.forEach(layer => {
@@ -56,7 +84,10 @@ const CanvasManager = {
             newCtx.imageSmoothingEnabled = true;
             newCtx.imageSmoothingQuality = 'high';
             
-            layer.objects.forEach(obj => this.drawSingleObject(newCtx, obj));
+            // Сохраняем текущую растровую информацию слоя (заливка, ластик, и т.п.)
+            if (layer.canvas) {
+                newCtx.drawImage(layer.canvas, 0, 0, this.width, this.height);
+            }
             
             layer.canvas = newCanvas;
             layer.ctx = newCtx;
@@ -64,6 +95,8 @@ const CanvasManager = {
 
         // Пересоздание preview
         const oldPreview = this.previewCanvas;
+        this.createCompositeCanvas();
+        this.compositeDirty = true;
         this.previewCanvas = document.createElement('canvas');
         this.previewCanvas.width = this.canvas.width;
         this.previewCanvas.height = this.canvas.height;
@@ -80,6 +113,15 @@ const CanvasManager = {
         this.gridCtx = this.gridCanvas.getContext('2d');
         this.gridCtx.scale(this.pixelRatio, this.pixelRatio);
         this.drawGridOnCanvas(this.gridCtx);
+    },
+
+    createCompositeCanvas() {
+        this.compositeCanvas = document.createElement('canvas');
+        this.compositeCanvas.width = this.canvas.width;
+        this.compositeCanvas.height = this.canvas.height;
+        this.compositeCtx = this.compositeCanvas.getContext('2d');
+        this.compositeCtx.scale(this.pixelRatio, this.pixelRatio);
+        this.compositeDirty = true;
     },
 
     // Создание overlay canvas для сетки (не физический)
@@ -146,7 +188,7 @@ const CanvasManager = {
         return this.showGrid;
     },
 
-    addLayer(name = null) {
+    addLayer(name = null, shouldRedraw = true) {
         const offscreen = document.createElement('canvas');
         offscreen.width = this.canvas.width;
         offscreen.height = this.canvas.height;
@@ -168,9 +210,12 @@ const CanvasManager = {
 
         this.layers.push(layer);
         this.activeLayerIndex = this.layers.length - 1;
+        this.compositeDirty = true;
 
         LayersManager?.updateLayersList();
-        this.redraw();
+        if (shouldRedraw) {
+            this.redraw();
+        }
 
         return layer;
     },
@@ -192,6 +237,7 @@ const CanvasManager = {
 
         // Пересоздаем canvas сетки
         this.createGridCanvas();
+        this.createCompositeCanvas();
 
         // сброс preview
         if (this.previewCanvas) {
@@ -242,6 +288,20 @@ const CanvasManager = {
             return;
         }
 
+        // Для ластика операция должна происходить на активном слое,
+        // иначе destination-out будет стирать только прозрачный новый слой
+        if (obj.tool === 'eraser') {
+            const currentLayer = this.activeLayer || this.addLayer('Фон');
+            currentLayer.objects.push(obj);
+            this.drawSingleObject(currentLayer.ctx, obj);
+            this.compositeDirty = true;
+            this.redraw();
+            LayersManager?.updateLayersList();
+            HistoryManager?.saveState();
+            console.log(`Объект ${obj.type} добавлен в активный слой "${currentLayer.name}"`);
+            return;
+        }
+
         // Получаем название объекта
         const typeName = LayersManager.getLayerTypeName(obj.type);
         const layerName = obj.type === 'text'
@@ -249,7 +309,7 @@ const CanvasManager = {
             : typeName;
         
         // Создаём новый слой для этого объекта
-        const newLayer = this.addLayer(layerName);
+        const newLayer = this.addLayer(layerName, false);
         
         // Добавляем объект в новый слой
         newLayer.objects.push(obj);
@@ -260,6 +320,9 @@ const CanvasManager = {
         
         // Рисуем объект на слое
         this.drawSingleObject(newLayer.ctx, obj);
+        
+        // Отметить, что композит надо пересобрать
+        this.compositeDirty = true;
         
         // Обновляем основной холст
         this.redraw();
@@ -281,13 +344,24 @@ const CanvasManager = {
         this.ctx.fillStyle = '#ffffff';
         this.ctx.fillRect(0, 0, this.width, this.height);
 
-        // Рисуем все видимые слои
-        this.layers.forEach((layer, index) => {
-            if (layer.visible) {
-                this.ctx.globalAlpha = layer.opacity;
-                this.ctx.drawImage(layer.canvas, 0, 0, this.width, this.height);
+        // Пересобираем композит, если слои изменились
+        if (this.compositeDirty) {
+            if (this.compositeCtx) {
+                this.compositeCtx.clearRect(0, 0, this.width, this.height);
+                this.layers.forEach((layer) => {
+                    if (layer.visible) {
+                        this.compositeCtx.globalAlpha = layer.opacity;
+                        this.compositeCtx.drawImage(layer.canvas, 0, 0, this.width, this.height);
+                    }
+                });
+                this.compositeCtx.globalAlpha = 1;
             }
-        });
+            this.compositeDirty = false;
+        }
+
+        if (this.compositeCanvas) {
+            this.ctx.drawImage(this.compositeCanvas, 0, 0, this.width, this.height);
+        }
 
         this.ctx.globalAlpha = 1;
 
@@ -381,7 +455,7 @@ const CanvasManager = {
             minX = obj.x;
             minY = obj.y;
             maxX = obj.x + (obj.width || 100);
-            maxY = obj.y + (obj.height || 20);
+            maxY = obj.y + (obj.height || 30);
         } else if (obj.type === 'arrow') {
             minX = obj.x;
             minY = obj.y;
@@ -504,30 +578,61 @@ const CanvasManager = {
             }
         } else if (obj.type === 'arrow') {
             this.drawArrow(ctx, obj);
-        // В методе drawSingleObject замените блок с text на:
+
         } else if (obj.type === 'text') {
             ctx.save();
-            ctx.font = `${obj.fontSize || 16}px ${obj.fontFamily || 'Arial'}`;
+            
+            // Формируем строку шрифта
+            let fontString = '';
+            if (obj.fontStyle === 'italic') fontString += 'italic ';
+            if (obj.fontWeight === 'bold') fontString += 'bold ';
+            fontString += `${obj.fontSize || 16}px ${obj.fontFamily || 'Arial Narrow'}`;
+            
+            ctx.font = fontString;
             ctx.fillStyle = obj.fillColor || '#000000';
             ctx.strokeStyle = obj.strokeColor || '#000000';
             ctx.lineWidth = obj.strokeWidth || 1;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
             
-            // Измеряем текст для правильного bounding box
+            // Измеряем текст
             const metrics = ctx.measureText(obj.text);
             const textWidth = metrics.width;
             const textHeight = (obj.fontSize || 16) * 1.2;
             
-            // Обновляем width/height объекта для корректного выделения
+            // Обновляем размеры объекта
             obj.width = textWidth;
             obj.height = textHeight;
             
-            // Рисуем обводку если есть и она не прозрачная
+            // Рассчитываем позицию в зависимости от выравнивания
+            let drawX = obj.x;
+            let drawY = obj.y;
+            
+            if (obj.textAlign === 'center') {
+                drawX = obj.x + (obj.width / 2) - (textWidth / 2);
+            } else if (obj.textAlign === 'right') {
+                drawX = obj.x + obj.width - textWidth;
+            }
+            
+            // Рисуем обводку
             if (obj.strokeColor && obj.strokeColor !== 'transparent' && obj.strokeColor !== '#00000000') {
-                ctx.strokeText(obj.text, obj.x, obj.y + (obj.fontSize || 16));
+                ctx.strokeText(obj.text, drawX, drawY);
             }
             
             // Рисуем заливку
-            ctx.fillText(obj.text, obj.x, obj.y + (obj.fontSize || 16));
+            ctx.fillText(obj.text, drawX, drawY);
+            
+            // Рисуем подчёркивание если нужно
+            if (obj.textDecoration === 'underline') {
+                const underlineY = drawY + (obj.fontSize || 16) + 2;
+                ctx.beginPath();
+                ctx.moveTo(drawX, underlineY);
+                ctx.lineTo(drawX + textWidth, underlineY);
+                ctx.strokeStyle = obj.fillColor || '#000000';
+                ctx.lineWidth = obj.strokeWidth || 1;
+                ctx.stroke();
+            }
+            
             ctx.restore();
         }
     },
@@ -609,6 +714,7 @@ const CanvasManager = {
 
     clear() {
         this.layers = [];
+        this.createCompositeCanvas();
         this.addLayer("Фон");
         this.redraw();
         LayersManager?.updateLayersList();

@@ -1,4 +1,3 @@
-/* Адаптивность для планшетов */
 @media (max-width: 1024px) {
     .tools-panel {
         width: 220px;

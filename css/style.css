@@ -1,4 +1,3 @@
-/* Импорт компонентов */
 @import url('components/header.css');
 @import url('components/tools-panel.css');
 @import url('components/canvas-area.css');
@@ -62,6 +61,9 @@ html {
     color: black;
     outline: none;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    text-shadow: none;
+    caret-color: #000;
+    -webkit-text-fill-color: #000;
     animation: fadeIn 0.2s;
 }
 

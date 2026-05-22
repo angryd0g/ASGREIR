@@ -1,4 +1,3 @@
-// Вспомогательные функции
 const Helpers = {
     // Получение координат относительно canvas с учетом pixel ratio
     getCanvasCoordinates(e, canvas, scale) {

@@ -18,12 +18,13 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas.addEventListener('mouseup', onMouseUp);
     canvas.addEventListener('wheel', onWheel, { passive: false });
     canvas.addEventListener('contextmenu', e => e.preventDefault());
-
     canvas.addEventListener('mousemove', updateCoordinates);
+    
+    // ДОБАВЛЕНО: Обработчик двойного клика для редактирования текста
+    canvas.addEventListener('dblclick', onDoubleClick);
 
     // инициализируем менеджер файлов (fileManager.js)
     FileManager.init();
-
 
     // Панорамирование пробелом
     window.addEventListener('keydown', e => {
@@ -74,15 +75,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (e.ctrlKey && e.key === 'a') {
             e.preventDefault();
-            // Сначала активируем инструмент選択 (select)
             document.querySelector('[data-tool="select"]').click();
-            // Затем выбираем все объекты
             ToolsManager.selectAllObjects();
         }
     });
 
-        function onMouseDown(e) {
-        if (e.button === 2) { // правая кнопка — панорамирование
+    // ДОБАВЛЕНО: Функция двойного клика
+    function onDoubleClick(e) {
+        const pos = Helpers.getCanvasCoordinates(e, canvas, NavigationManager.scale);
+        const clickedObj = ToolsManager.findObjectAt(pos.x, pos.y);
+        
+        if (clickedObj && clickedObj.type === 'text') {
+            // Активируем инструмент текст
+            const textBtn = document.querySelector('[data-tool="text"]');
+            if (textBtn) textBtn.click();
+            // Запускаем редактирование текста
+            ToolsManager.startTextInput(pos.x, pos.y, e.clientX, e.clientY);
+        }
+    }
+
+    function onMouseDown(e) {
+        if (e.button === 2) {
             e.preventDefault();
             isRightButtonPanning = true;
             container.classList.add('panning');
@@ -96,23 +109,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (NavigationManager.isPanning) return;
             const pos = Helpers.getCanvasCoordinates(e, canvas, NavigationManager.scale);
             
-            // startDrawing возвращает true только для инструментов, которые рисуют (прямоугольник, круг, линия, карандаш)
-            // Для текста и заливки возвращает false
             const started = ToolsManager.startDrawing(pos.x, pos.y, e.clientX, e.clientY);
             
             if (started) {
-                // Только если рисование началось, перерисовываем
                 CanvasManager.redraw();
             }
             
-            // Установить grabbing курсор при начале перемещения
             if (ToolsManager.isMoving) {
                 canvas.style.cursor = 'grabbing';
             }
         }
     }
     
-    // Флаг для запроса перерисовки в next animation frame
     let pendingRedraw = false;
 
     function scheduleRedraw() {
@@ -140,39 +148,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const pos = Helpers.getCanvasCoordinates(e, canvas, NavigationManager.scale);
      
-        // Для текстового инструмента показываем preview области
         if (ToolsManager.currentTool === 'text' && ToolsManager.isDrawingTextArea) {
+            if (CanvasManager.previewCtx) {
+                CanvasManager.previewCtx.clearRect(0, 0, CanvasManager.width, CanvasManager.height);
+            }
             ToolsManager.drawTemporary(CanvasManager.previewCtx, pos.x, pos.y);
             scheduleRedraw();
             return;
         }
             
-        // Обновляем курсор для select инструмента
         if (ToolsManager.currentTool === 'select') {
             updateCursorForSelect(pos.x, pos.y);
-            // Для select выходим только если нет активного движения
             if (!ToolsManager.isMoving && !ToolsManager.isResizing) return;
         } else {
-            // Для других инструментов нужно активное рисование
             if (!ToolsManager.isDrawing && !ToolsManager.isMoving && !ToolsManager.isResizing) return;
         }
 
         let shouldRedraw = false;
 
-        // Перемещение выделенного объекта (select инструмент)
         if (ToolsManager.currentTool === 'select' && ToolsManager.isMoving) {
             ToolsManager.drawTemporary(null, pos.x, pos.y);
             shouldRedraw = true;
         } else if (ToolsManager.currentTool === 'select' && ToolsManager.isResizing) {
-            // Изменение размера выделенного объекта
             ToolsManager.drawTemporary(null, pos.x, pos.y);
             shouldRedraw = true;
         } else if (ToolsManager.currentTool === 'pencil' || ToolsManager.currentTool === 'eraser') {
-            // Для карандаша и ластика не очищаем preview на каждом движении - рисуем инкрементально
             ToolsManager.drawTemporaryIncremental(CanvasManager.previewCtx, pos.x, pos.y);
             shouldRedraw = true;
         } else if (ToolsManager.isDrawing) {
-            // Очищаем предыдущий preview для фигур
             if (CanvasManager.previewCtx) {
                 CanvasManager.previewCtx.clearRect(0, 0, CanvasManager.width, CanvasManager.height);
                 ToolsManager.drawTemporary(CanvasManager.previewCtx, pos.x, pos.y);
@@ -189,11 +192,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Проверяем, над каким handle находится курсор
         const handle = ToolsManager.getHandleAtPoint(x, y, ToolsManager.selectedObject);
         
         if (handle) {
-            // Устанавливаем соответствующий cursor для resize
             const cursorMap = {
                 'nw': 'nwse-resize',
                 'n': 'ns-resize',
@@ -206,7 +207,6 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             canvas.style.cursor = cursorMap[handle] || 'default';
         } else {
-            // Проверяем, находимся ли над выбранным объектом
             const objAtCursor = ToolsManager.findObjectAt(x, y);
             if (objAtCursor === ToolsManager.selectedObject) {
                 canvas.style.cursor = 'grab';
@@ -216,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-        function onMouseUp(e) {
+    function onMouseUp(e) {
         if (e.button === 2) {
             isRightButtonPanning = false;
             container.classList.remove('panning');
@@ -229,11 +229,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (NavigationManager.isPanning || isRightButtonPanning) return;
 
             const pos = Helpers.getCanvasCoordinates(e, canvas, NavigationManager.scale);
-            
-            // stopDrawing будет возвращать объект только если действительно что-то рисовали
             const obj = ToolsManager.stopDrawing(pos.x, pos.y);
 
-            // Очищаем preview перед добавлением финального объекта
             if (CanvasManager.previewCtx) {
                 CanvasManager.previewCtx.clearRect(0, 0, CanvasManager.width, CanvasManager.height);
             }
@@ -243,10 +240,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     obj.type === 'polygon' || obj.type === 'arrow' ||
                     (obj.width > 2 && obj.height > 2)) {
                     CanvasManager.addObject(obj);
+                    CanvasManager.compositeDirty = true;
                 }
             }
 
-            // Восстанавливаем правильный курсор для select инструмента
             if (ToolsManager.currentTool === 'select') {
                 if (ToolsManager.selectedObject) {
                     canvas.style.cursor = 'grab';
@@ -265,8 +262,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateCoordinates(e) {
         const pos = Helpers.getCanvasCoordinates(e, canvas, NavigationManager.scale);
-        document.getElementById('mouse-coords').textContent =
-            `X: ${Math.round(pos.x)}, Y: ${Math.round(pos.y)}`;
+        const coordsElement = document.getElementById('mouse-coords');
+        if (coordsElement) {
+            coordsElement.textContent = `X: ${Math.round(pos.x)}, Y: ${Math.round(pos.y)}`;
+        }
     }
 
     window.addEventListener('resize', () => {
@@ -275,7 +274,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ToolsManager.updateCollapsibleForScreenSize();
     });
 
-    // Удаление по Delete
     window.addEventListener('keydown', e => {
         if (e.key === 'Delete' || e.key === 'Del') {
             const selectedObj = ToolsManager.selectedObject;
@@ -295,36 +293,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     ToolsManager.selectedObject = null;
                     CanvasManager.redraw();
                     LayersManager.updateLayersList();
+                    HistoryManager?.saveState();
                 }
             }
         }
     });
-    // Добавьте после инициализации всех менеджеров, перед закрывающей скобкой DOMContentLoaded
 
-// Переключение сетки
-        const toggleGridBtn = document.getElementById('toggleGrid');
-        if (toggleGridBtn) {
-            toggleGridBtn.addEventListener('click', () => {
-                const isVisible = CanvasManager.toggleGrid();
-                // Меняем иконку кнопки
-                const icon = toggleGridBtn.querySelector('i');
-                if (icon) {
-                    if (isVisible) {
-                        icon.className = 'fas fa-border-all';
-                        toggleGridBtn.title = 'Скрыть сетку';
-                    } else {
-                        icon.className = 'fas fa-border-none';
-                        toggleGridBtn.title = 'Показать сетку';
-                    }
-                }
-            });
-            
-            // Устанавливаем начальное состояние иконки
+    const toggleGridBtn = document.getElementById('toggleGrid');
+    if (toggleGridBtn) {
+        toggleGridBtn.addEventListener('click', () => {
+            const isVisible = CanvasManager.toggleGrid();
             const icon = toggleGridBtn.querySelector('i');
-            if (icon && CanvasManager.showGrid !== undefined) {
-                icon.className = CanvasManager.showGrid ? 'fas fa-border-all' : 'fas fa-border-none';
-                toggleGridBtn.title = CanvasManager.showGrid ? 'Скрыть сетку' : 'Показать сетку';
+            if (icon) {
+                if (isVisible) {
+                    icon.className = 'fas fa-border-all';
+                    toggleGridBtn.title = 'Скрыть сетку';
+                } else {
+                    icon.className = 'fas fa-border-none';
+                    toggleGridBtn.title = 'Показать сетку';
+                }
             }
+        });
+        
+        const icon = toggleGridBtn.querySelector('i');
+        if (icon && CanvasManager.showGrid !== undefined) {
+            icon.className = CanvasManager.showGrid ? 'fas fa-border-all' : 'fas fa-border-none';
+            toggleGridBtn.title = CanvasManager.showGrid ? 'Скрыть сетку' : 'Показать сетку';
         }
     }
-);
+});

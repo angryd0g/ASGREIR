@@ -156,40 +156,101 @@
             </div>
         </div>
     </div>
-
+    
     <!-- ВКЛАДКА: Свойства -->
     <div class="panel-section collapsible">
-        <div class="section-header" data-toggle="properties-section">
-            <h3>Свойства</h3>
-            <i class="fas fa-chevron-down toggle-icon"></i>
-        </div>
-        <div class="section-content" id="properties-section">
-            <div class="properties-panel">
+    <div class="section-header" data-toggle="properties-section">
+        <h3>Свойства</h3>
+        <i class="fas fa-chevron-down toggle-icon"></i>
+    </div>
+    <div class="section-content" id="properties-section">
+        <div class="properties-panel">
+            <!-- Общие настройки (для всех инструментов) -->
+            <div class="property-group common-properties">
+                <label>Обводка</label>
+                <div class="color-input">
+                    <input type="color" id="stroke-color" value="#000000">
+                    <span class="color-value">#000000</span>
+                </div>
+            </div>
+            <div class="property-group common-properties">
+                <label>Заливка</label>
+                <div class="color-input">
+                    <input type="color" id="fill-color" value="#000000">
+                    <span class="color-value">#000000</span>
+                </div>
+            </div>
+            <div class="property-group common-properties">
+                <label>Толщина <span id="stroke-width-value">2px</span></label>
+                <input type="range" id="stroke-width" min="1" max="20" value="2">
+            </div>
+
+            <!-- НАСТРОЙКИ ТЕКСТА (по умолчанию скрыты) -->
+            <div id="text-properties" style="display: none;">
+                <div class="property-separator"></div>
+                
+                <!-- Текст -->
                 <div class="property-group">
-                    <label>Обводка</label>
-                    <div class="color-input">
-                        <input type="color" id="stroke-color" value="#000000">
-                        <span class="color-value">#000000</span>
+                    <label>Текст</label>
+                    <input type="text" id="text-content" class="property-input" placeholder="Введите текст">
+                </div>
+
+                <!-- Размер шрифта -->
+                <div class="property-group">
+                    <label>Размер шрифта <span id="font-size-value">14px</span></label>
+                    <input type="range" id="font-size" min="8" max="999" value="14">
+                </div>
+
+                <!-- Семейство шрифтов -->
+                <div class="property-group">
+                    <label>Шрифт</label>
+                    <select id="font-family" class="property-select">
+                        <option value="Arial">Arial</option>
+                        <option value="Arial Narrow" selected>Arial Narrow</option>
+                        <option value="Times New Roman">Times New Roman</option>
+                        <option value="Courier New">Courier New</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Verdana">Verdana</option>
+                        <option value="Impact">Impact</option>
+                        <option value="Comic Sans MS">Comic Sans MS</option>
+                    </select>
+                </div>
+
+                <!-- Стиль текста (жирный/курсив) -->
+                <div class="property-group">
+                    <label>Стиль</label>
+                    <div class="text-style-buttons">
+                        <button type="button" id="text-bold" class="style-btn" title="Жирный (Ctrl+B)">
+                            <i class="fas fa-bold"></i>
+                        </button>
+                        <button type="button" id="text-italic" class="style-btn" title="Курсив (Ctrl+I)">
+                            <i class="fas fa-italic"></i>
+                        </button>
+                        <button type="button" id="text-underline" class="style-btn" title="Подчёркивание (Ctrl+U)">
+                            <i class="fas fa-underline"></i>
+                        </button>
                     </div>
                 </div>
+
+                <!-- Выравнивание -->
                 <div class="property-group">
-                    <label>Заливка</label>
-                    <div class="color-input">
-                        <input type="color" id="fill-color" value="#4a90e2">
-                        <span class="color-value">#4a90e2</span>
+                    <label>Выравнивание</label>
+                    <div class="text-align-buttons">
+                        <button type="button" id="text-align-left" class="align-btn active" title="По левому краю">
+                            <i class="fas fa-align-left"></i>
+                        </button>
+                        <button type="button" id="text-align-center" class="align-btn" title="По центру">
+                            <i class="fas fa-align-center"></i>
+                        </button>
+                        <button type="button" id="text-align-right" class="align-btn" title="По правому краю">
+                            <i class="fas fa-align-right"></i>
+                        </button>
                     </div>
-                </div>
-                <div class="property-group">
-                    <label>Толщина <span id="stroke-width-value">2px</span></label>
-                    <input type="range" id="stroke-width" min="1" max="20" value="2">
-                </div>
-                <div class="property-group" id="font-size-group" style="display: none;">
-                    <label>Размер текста <span id="font-size-value">16px</span></label>
-                    <input type="range" id="font-size" min="8" max="72" value="16">
                 </div>
             </div>
         </div>
     </div>
+</div>
 </aside>            
 
             <!-- Центральная область - Холст -->
@@ -215,21 +276,21 @@
                     </button>
                 </div>
             </main>
-
+            
             <!-- Правая панель - Слои -->
-            <aside class="layers-panel">
-    <div class="panel-section">
-        <div class="panel-header">
-            <h3>Слои</h3>
-            <button class="add-layer-btn" title="Добавить слой">
-                <i class="fas fa-plus"></i>
-            </button>
-        </div>
-        <div class="layers-list" id="layersList">
-            <!-- Слои будут добавляться сюда динамически -->
-        </div>
-    </div>
-</aside>    
+             <aside class="layers-panel">
+                <div class="panel-section">
+                    <div class="panel-header">
+                        <h3>Слои</h3>
+                        <button class="add-layer-btn" title="Добавить слой">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div class="layers-list" id="layersList">
+                        <!-- Слои будут добавляться сюда динамически -->
+                    </div>
+                </div>
+            </aside>    
         </div>
 
         <!-- Нижняя панель статуса -->
@@ -240,7 +301,7 @@
             </div>
             <div class="status-right">
                 <span><i class="fas fa-hand"></i> Зажмите пробел для перемещения</span>
-                <span><i class="fas fa-sync-alt"></i> v1.0.0</span>
+                <span><i class="fas fa-sync-alt"></i> v0.6.7</span>
             </div>
         </footer>
     </div>

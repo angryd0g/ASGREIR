@@ -1,4 +1,3 @@
-// Управление инструментами
 const ToolsManager = {
     isDrawingTextArea: false,
     textAreaStartX: 0,
@@ -12,15 +11,15 @@ const ToolsManager = {
     strokeWidth: 2,
     fontSize: 16,
     isDrawing: false,
-    isMoving: false,              // флаг перемещения выделенного объекта
-    isResizing: false,            // флаг изменения размера
-    resizingHandle: null,         // какой handle используется для resize
-    moveStartX: 0,                // начальная позиция мыши при перемещении
-    moveStartY: 0,                // начальная позиция мыши при перемещении
-    moveObjectStartX: 0,          // начальная позиция объекта
-    moveObjectStartY: 0,          // начальная позиция объекта
-    objectStartBounds: null,      // исходные границы объекта при resize
-    moveObjectSnapshot: null,     // снимок объекта при начале перемещения
+    isMoving: false,              
+    isResizing: false,            
+    resizingHandle: null,         
+    moveStartX: 0,               
+    moveStartY: 0,                
+    moveObjectStartX: 0,  
+    moveObjectStartY: 0,         
+    objectStartBounds: null,     
+    moveObjectSnapshot: null,   
     startX: 0,
     startY: 0,
     textInput: null,
@@ -28,15 +27,21 @@ const ToolsManager = {
     textInputY: 0,
     editingTextObject: null,
     selectedObject: null,
-    allObjectsSelected: false,    // флаг для "выбрать все"
-    selectedObjects: [],          // массив всех выбранных объектов
+    allObjectsSelected: false,    
+    selectedObjects: [],       
     currentPath: null,
+    fontFamily: 'Arial Narrow',
+    textValue: '',
+    fontWeight: 'normal',
+    fontStyle: 'normal',   
+    textDecoration: 'none', 
+    textAlign: 'left', 
     
     init() {
         this.setupTools();
         this.setupProperties();
         this.setupTextInput();
-        this.setupCollapsibleSections(); // Добавляем инициализацию сворачивания
+        this.setupCollapsibleSections();
     },
     
     setupTools() {
@@ -56,134 +61,316 @@ const ToolsManager = {
     },
     
         activateTool(btn) {
-        document.querySelectorAll('.tool-btn, .shape-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        this.currentTool = btn.dataset.tool;
-        
-        // Показываем/скрываем настройки размера текста
-        const fontSizeGroup = document.getElementById('font-size-group');
-        if (fontSizeGroup) {
-            fontSizeGroup.style.display = this.currentTool === 'text' ? 'block' : 'none';
-        }
-        
-        // При выборе инструмента "Текст" снимаем выделение
-        if (this.currentTool === 'text') {
-            this.selectedObject = null;
-            CanvasManager.redraw();
-        }
-        
-        // Снимаем выделение при смене инструмента
-        if (this.currentTool !== 'select') {
-            this.selectedObject = null;
-        }
-    },
+            document.querySelectorAll('.tool-btn, .shape-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            this.currentTool = btn.dataset.tool;
+            
+            // Показываем/скрываем настройки текста
+            const textProperties = document.getElementById('text-properties');
+            const fontSizeGroup = document.getElementById('font-size-group');
+            
+            if (textProperties) {
+                // Показываем полные настройки текста только когда выбран текст
+                if (this.selectedObject && this.selectedObject.type === 'text') {
+                    textProperties.style.display = 'block';
+                } else {
+                    textProperties.style.display = 'none';
+                }
+            }
+            
+            if (fontSizeGroup) {
+                fontSizeGroup.style.display = this.currentTool === 'text' ? 'block' : 'none';
+            }
+            
+            if (this.currentTool === 'text') {
+                this.selectedObject = null;
+                CanvasManager.redraw();
+            }
+            
+            if (this.currentTool !== 'select') {
+                this.selectedObject = null;
+            }
+        },
+
+        updateTextPropertiesPanel() {
+            const textProperties = document.getElementById('text-properties');
+            if (!textProperties) return;
+            
+            if (this.selectedObject && this.selectedObject.type === 'text') {
+                const obj = this.selectedObject;
+                
+                // Загружаем значения из объекта
+                this.fontSize = obj.fontSize || 14;
+                this.fontFamily = obj.fontFamily || 'Arial Narrow';
+                this.fontWeight = obj.fontWeight || 'normal';
+                this.fontStyle = obj.fontStyle || 'normal';
+                this.textDecoration = obj.textDecoration || 'none';
+                this.textAlign = obj.textAlign || 'left';
+                this.fillColor = obj.fillColor || '#000000';
+                this.strokeColor = obj.strokeColor || '#000000';
+                this.strokeWidth = obj.strokeWidth || 2;
+                
+                // Обновляем элементы управления
+                const fontSizeInput = document.getElementById('font-size');
+                const fontSizeValue = document.getElementById('font-size-value');
+                if (fontSizeInput) {
+                    fontSizeInput.value = this.fontSize;
+                    fontSizeInput.max = 999;
+                }
+                if (fontSizeValue) fontSizeValue.textContent = this.fontSize + 'px';
+                
+                const textContentInput = document.getElementById('text-content');
+                if (textContentInput) {
+                    textContentInput.value = obj.text || '';
+                    this.textValue = obj.text || '';
+                }
+                
+                const fontFamilySelect = document.getElementById('font-family');
+                if (fontFamilySelect) fontFamilySelect.value = this.fontFamily;
+                
+                const strokeColorInput = document.getElementById('stroke-color');
+                if (strokeColorInput) strokeColorInput.value = this.strokeColor;
+                
+                const fillColorInput = document.getElementById('fill-color');
+                if (fillColorInput) fillColorInput.value = this.fillColor;
+                
+                const strokeWidthInput = document.getElementById('stroke-width');
+                const strokeWidthValue = document.getElementById('stroke-width-value');
+                if (strokeWidthInput) strokeWidthInput.value = this.strokeWidth;
+                if (strokeWidthValue) strokeWidthValue.textContent = this.strokeWidth + 'px';
+                
+                // Обновляем кнопки стилей
+                const boldBtn = document.getElementById('text-bold');
+                if (boldBtn) boldBtn.classList.toggle('active', this.fontWeight === 'bold');
+                
+                const italicBtn = document.getElementById('text-italic');
+                if (italicBtn) italicBtn.classList.toggle('active', this.fontStyle === 'italic');
+                
+                const underlineBtn = document.getElementById('text-underline');
+                if (underlineBtn) underlineBtn.classList.toggle('active', this.textDecoration === 'underline');
+                
+                // Обновляем выравнивание
+                const alignLeft = document.getElementById('text-align-left');
+                const alignCenter = document.getElementById('text-align-center');
+                const alignRight = document.getElementById('text-align-right');
+                
+                if (alignLeft) alignLeft.classList.toggle('active', this.textAlign === 'left');
+                if (alignCenter) alignCenter.classList.toggle('active', this.textAlign === 'center');
+                if (alignRight) alignRight.classList.toggle('active', this.textAlign === 'right');
+                
+                // Показываем панель текста
+                textProperties.style.display = 'block';
+            } else {
+                textProperties.style.display = 'none';
+            }
+        },
     
         setupProperties() {
-        const strokeColorInput = document.getElementById('stroke-color');
-        if (strokeColorInput) {
-            strokeColorInput.addEventListener('change', (e) => {
-                this.strokeColor = e.target.value;
-                const colorValue = document.querySelector('.color-input .color-value');
-                if (colorValue) colorValue.textContent = this.strokeColor;
-                // Обновляем выбранный текст если есть
-                if (this.selectedObject && this.selectedObject.type === 'text') {
-                    this.updateTextProperties();
-                }
-            });
-        }
-        
-        const fillColorInput = document.getElementById('fill-color');
-        if (fillColorInput) {
-            fillColorInput.addEventListener('change', (e) => {
-                this.fillColor = e.target.value;
-                if (this.selectedObject && this.selectedObject.type === 'text') {
-                    this.updateTextProperties();
-                }
-            });
-        }
-        
-        const strokeWidthInput = document.getElementById('stroke-width');
-        if (strokeWidthInput) {
-            strokeWidthInput.addEventListener('input', (e) => {
-                this.strokeWidth = parseInt(e.target.value);
-                const strokeValue = document.getElementById('stroke-width-value');
-                if (strokeValue) strokeValue.textContent = this.strokeWidth + 'px';
-                if (this.selectedObject && this.selectedObject.type === 'text') {
-                    this.updateTextProperties();
-                }
-            });
-        }
-        
-        const fontSizeInput = document.getElementById('font-size');
-        if (fontSizeInput) {
-            fontSizeInput.addEventListener('input', (e) => {
-                this.fontSize = parseInt(e.target.value);
-                const fontSizeValue = document.getElementById('font-size-value');
-                if (fontSizeValue) fontSizeValue.textContent = this.fontSize + 'px';
-                if (this.selectedObject && this.selectedObject.type === 'text') {
-                    this.updateTextProperties();
-                }
-            });
-        }
-    },  
+            const strokeColorInput = document.getElementById('stroke-color');
+            if (strokeColorInput) {
+                strokeColorInput.addEventListener('change', (e) => {
+                    this.strokeColor = e.target.value;
+                    const colorValue = document.querySelector('.color-input .color-value');
+                    if (colorValue) colorValue.textContent = this.strokeColor;
+                    if (this.selectedObject && this.selectedObject.type === 'text') {
+                        this.updateTextProperties();
+                    }
+                });
+            }
+            
+            const fillColorInput = document.getElementById('fill-color');
+            if (fillColorInput) {
+                fillColorInput.addEventListener('change', (e) => {
+                    this.fillColor = e.target.value;
+                    if (this.selectedObject && this.selectedObject.type === 'text') {
+                        this.updateTextProperties();
+                    }
+                });
+            }
+            
+            const strokeWidthInput = document.getElementById('stroke-width');
+            if (strokeWidthInput) {
+                strokeWidthInput.addEventListener('input', (e) => {
+                    this.strokeWidth = parseInt(e.target.value);
+                    const strokeValue = document.getElementById('stroke-width-value');
+                    if (strokeValue) strokeValue.textContent = this.strokeWidth + 'px';
+                    if (this.selectedObject && this.selectedObject.type === 'text') {
+                        this.updateTextProperties();
+                    }
+                });
+            }
+            
+            const fontSizeInput = document.getElementById('font-size');
+            if (fontSizeInput) {
+                fontSizeInput.addEventListener('input', (e) => {
+                    this.fontSize = parseInt(e.target.value);
+                    const fontSizeValue = document.getElementById('font-size-value');
+                    if (fontSizeValue) fontSizeValue.textContent = this.fontSize + 'px';
+                    if (this.selectedObject && this.selectedObject.type === 'text') {
+                        this.updateTextProperties();
+                    }
+                });
+            }
+            
+            // НОВЫЕ НАСТРОЙКИ ДЛЯ ТЕКСТА
+            
+            // Семейство шрифтов
+            const textContentInput = document.getElementById('text-content');
+            if (textContentInput) {
+                textContentInput.addEventListener('input', (e) => {
+                    this.textValue = e.target.value;
+                    if (this.selectedObject && this.selectedObject.type === 'text') {
+                        this.selectedObject.text = this.textValue;
+                        this.updateTextProperties();
+                    }
+                });
+            }
+
+            const fontFamilySelect = document.getElementById('font-family');
+            if (fontFamilySelect) {
+                fontFamilySelect.addEventListener('change', (e) => {
+                    this.fontFamily = e.target.value;
+                    if (this.selectedObject && this.selectedObject.type === 'text') {
+                        this.updateTextProperties();
+                    }
+                });
+            }
+            
+            // Жирный
+            const boldBtn = document.getElementById('text-bold');
+            if (boldBtn) {
+                boldBtn.addEventListener('click', () => {
+                    this.fontWeight = this.fontWeight === 'bold' ? 'normal' : 'bold';
+                    boldBtn.classList.toggle('active', this.fontWeight === 'bold');
+                    if (this.selectedObject && this.selectedObject.type === 'text') {
+                        this.updateTextProperties();
+                    }
+                });
+            }
+            
+            // Курсив
+            const italicBtn = document.getElementById('text-italic');
+            if (italicBtn) {
+                italicBtn.addEventListener('click', () => {
+                    this.fontStyle = this.fontStyle === 'italic' ? 'normal' : 'italic';
+                    italicBtn.classList.toggle('active', this.fontStyle === 'italic');
+                    if (this.selectedObject && this.selectedObject.type === 'text') {
+                        this.updateTextProperties();
+                    }
+                });
+            }
+
+            // Подчёркивание
+            const underlineBtn = document.getElementById('text-underline');
+            if (underlineBtn) {
+                underlineBtn.addEventListener('click', () => {
+                    this.textDecoration = this.textDecoration === 'underline' ? 'none' : 'underline';
+                    underlineBtn.classList.toggle('active', this.textDecoration === 'underline');
+                    if (this.selectedObject && this.selectedObject.type === 'text') {
+                        this.updateTextProperties();
+                    }
+                });
+            }
+            
+            // Выравнивание
+            const alignLeft = document.getElementById('text-align-left');
+            const alignCenter = document.getElementById('text-align-center');
+            const alignRight = document.getElementById('text-align-right');
+            
+            if (alignLeft) {
+                alignLeft.addEventListener('click', () => {
+                    this.textAlign = 'left';
+                    alignLeft.classList.add('active');
+                    alignCenter.classList.remove('active');
+                    alignRight.classList.remove('active');
+                    if (this.selectedObject && this.selectedObject.type === 'text') {
+                        this.updateTextProperties();
+                    }
+                });
+            }
+            
+            if (alignCenter) {
+                alignCenter.addEventListener('click', () => {
+                    this.textAlign = 'center';
+                    alignLeft.classList.remove('active');
+                    alignCenter.classList.add('active');
+                    alignRight.classList.remove('active');
+                    if (this.selectedObject && this.selectedObject.type === 'text') {
+                        this.updateTextProperties();
+                    }
+                });
+            }
+            
+            if (alignRight) {
+                alignRight.addEventListener('click', () => {
+                    this.textAlign = 'right';
+                    alignLeft.classList.remove('active');
+                    alignCenter.classList.remove('active');
+                    alignRight.classList.add('active');
+                    if (this.selectedObject && this.selectedObject.type === 'text') {
+                        this.updateTextProperties();
+                    }
+                });
+            }
+        },
 
         drawTextAreaPreview(ctx, x, y) {
-        if (!this.isDrawingTextArea) return;
-        
-        const width = x - this.textAreaStartX;
-        const height = y - this.textAreaStartY;
-        
-        if (Math.abs(width) < 5 || Math.abs(height) < 5) return;
-        
-        ctx.save();
-        ctx.strokeStyle = '#0066cc';
-        ctx.fillStyle = 'rgba(0, 102, 204, 0.1)';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
-        
-        const rectX = width > 0 ? this.textAreaStartX : x;
-        const rectY = height > 0 ? this.textAreaStartY : y;
-        const rectW = Math.abs(width);
-        const rectH = Math.abs(height);
-        
-        ctx.fillRect(rectX, rectY, rectW, rectH);
-        ctx.strokeRect(rectX, rectY, rectW, rectH);
-        ctx.restore();
-    },
+            if (!this.isDrawingTextArea) return;
+            
+            const width = x - this.textAreaStartX;
+            const height = y - this.textAreaStartY;
+            
+            if (Math.abs(width) < 5 || Math.abs(height) < 5) return;
+            
+            ctx.save();
+            ctx.strokeStyle = '#0066cc';
+            ctx.fillStyle = 'rgba(0, 102, 204, 0.1)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            
+            const rectX = width > 0 ? this.textAreaStartX : x;
+            const rectY = height > 0 ? this.textAreaStartY : y;
+            const rectW = Math.abs(width);
+            const rectH = Math.abs(height);
+            
+            ctx.fillRect(rectX, rectY, rectW, rectH);
+            ctx.strokeRect(rectX, rectY, rectW, rectH);
+            ctx.restore();
+        },
 
-        showTextInputForArea(x, y, width, height) {
-        console.log('showTextInputForArea вызван', { x, y, width, height });
-        
-        const canvas = document.getElementById('drawCanvas');
-        if (!canvas) return;
-        
-        const rect = canvas.getBoundingClientRect();
-        const container = document.getElementById('canvasContainer');
-        const scale = NavigationManager ? NavigationManager.scale : 1;
-        const offsetX = NavigationManager ? NavigationManager.offsetX : 0;
-        const offsetY = NavigationManager ? NavigationManager.offsetY : 0;
-        
-        // Учитываем масштаб и панорамирование
-        const screenX = rect.left + (x - offsetX) * scale;
-        const screenY = rect.top + (y - offsetY) * scale;
-        const screenWidth = width * scale;
-        const screenHeight = height * scale;
-        
-        this.textInput.style.left = screenX + 'px';
-        this.textInput.style.top = screenY + 'px';
-        this.textInput.style.width = screenWidth + 'px';
-        this.textInput.style.height = screenHeight + 'px';
-        this.textInput.style.display = 'block';
-        this.textInput.style.fontSize = Math.max(12, (height * 0.7)) + 'px';
-        this.textInput.value = '';
-        this.textInput.focus();
-        
-        this.textInputX = x;
-        this.textInputY = y;
-        this.textInputWidth = width;
-        this.textInputHeight = height;
-        this.editingTextObject = null;
-    },
+            showTextInputForArea(x, y, width, height) {
+            console.log('showTextInputForArea вызван', { x, y, width, height });
+            
+            const canvas = document.getElementById('drawCanvas');
+            if (!canvas) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const container = document.getElementById('canvasContainer');
+            const scale = NavigationManager ? NavigationManager.scale : 1;
+            const offsetX = NavigationManager ? NavigationManager.offsetX : 0;
+            const offsetY = NavigationManager ? NavigationManager.offsetY : 0;
+            
+            // Учитываем масштаб и панорамирование
+            const screenX = rect.left + (x - offsetX) * scale;
+            const screenY = rect.top + (y - offsetY) * scale;
+            const screenWidth = width * scale;
+            const screenHeight = height * scale;
+            
+            this.textInput.style.left = screenX + 'px';
+            this.textInput.style.top = screenY + 'px';
+            this.textInput.style.width = screenWidth + 'px';
+            this.textInput.style.height = screenHeight + 'px';
+            this.textInput.style.display = 'block';
+            this.textInput.style.fontSize = Math.max(12, (height * 0.7)) + 'px';
+            this.textInput.value = '';
+            this.textInput.focus();
+            
+            this.textInputX = x;
+            this.textInputY = y;
+            this.textInputWidth = width;
+            this.textInputHeight = height;
+            this.editingTextObject = null;
+        },
     
     setupTextInput() {
         this.textInput = document.createElement('input');
@@ -298,11 +485,9 @@ const ToolsManager = {
     
     startDrawing(x, y, clientX, clientY) {
         if (this.currentTool === 'select') {
-            // Если уже выбран объект, проверяем нажали ли на handle
             if (this.selectedObject) {
                 const handle = this.getHandleAtPoint(x, y, this.selectedObject);
                 if (handle) {
-                    // Начинаем resize
                     this.isResizing = true;
                     this.resizingHandle = handle;
                     this.moveStartX = x;
@@ -313,18 +498,15 @@ const ToolsManager = {
                 }
             }
             
-            // Проверяем нажали ли на выделенный объект для перемещения
             const objAtClick = this.findObjectAt(x, y);
             console.log('startDrawing select: объект найден?', !!objAtClick, 'выбранный объект=', !!this.selectedObject, 'совпадает?', objAtClick === this.selectedObject);
             
             if (objAtClick && objAtClick === this.selectedObject) {
-                // Уже выделен, начинаем перемещение
                 this.isMoving = true;
-                this.isResizing = false; // Убедимся, что resize не активен
+                this.isResizing = false;
                 this.moveStartX = x;
                 this.moveStartY = y;
                 
-                // Используем bounds для получения начальной позиции объекта
                 const bounds = CanvasManager.getObjectBounds(objAtClick);
                 if (bounds) {
                     this.moveObjectStartX = bounds.x;
@@ -334,14 +516,15 @@ const ToolsManager = {
                     this.moveObjectStartY = objAtClick.y || 0;
                 }
                 
-                // Сохраняем снимок объекта для правильного перемещения
                 this.moveObjectSnapshot = JSON.parse(JSON.stringify(objAtClick));
                 
                 console.log('startDrawing: начало MOVE, координаты:', { moveStartX: x, moveStartY: y, boundsX: this.moveObjectStartX, boundsY: this.moveObjectStartY });
             } else {
-                // Выделяем новый объект
                 console.log('startDrawing select: ВЫБИРАЕМ новый объект', !!objAtClick);
                 this.selectedObject = objAtClick;
+
+                this.updateTextPropertiesPanel();
+
                 this.isMoving = false;
                 this.isResizing = false;
                 CanvasManager.redraw();
@@ -349,14 +532,14 @@ const ToolsManager = {
             return false;
         }
         
-            if (this.currentTool === 'text') {
+        if (this.currentTool === 'text') {
             console.log('Text tool: начало рисования области');
             this.isDrawingTextArea = true;
             this.textAreaStartX = x;
             this.textAreaStartY = y;
             this.isDrawing = true;
             return true;
-       }   
+        }   
         
             if (this.currentTool === 'fill') {
                 this.performFill(x, y);
@@ -366,14 +549,21 @@ const ToolsManager = {
         this.isDrawing = true;
         this.startX = x;
         this.startY = y;
+
+        if (CanvasManager.previewCtx) {
+            CanvasManager.previewCtx.clearRect(0, 0, CanvasManager.width, CanvasManager.height);
+        }
         
         if (this.currentTool === 'pencil' || this.currentTool === 'eraser') {
-            // Очищаем preview для нового рисования
-            if (CanvasManager.previewCtx) {
-                CanvasManager.previewCtx.clearRect(0, 0, CanvasManager.width, CanvasManager.height);
+            
+            // Если ластик, по возможности выбираем слой, на котором находится объект под курсором.
+            if (this.currentTool === 'eraser') {
+                const hit = this.findLayerAtPoint(x, y);
+                if (hit) {
+                    CanvasManager.activeLayerIndex = hit.layerIndex;
+                }
             }
             
-            // Создаем объект, но НЕ добавляем его в слой - будет добавлен при stopDrawing
             this.currentPath = {
                 type: 'path',
                 points: [{x, y}],
@@ -384,6 +574,7 @@ const ToolsManager = {
         }
         
         return true;
+        
     },
     
     drawTemporary(ctx, x, y) {
@@ -472,6 +663,7 @@ const ToolsManager = {
             // Перерисовываем слой
             this.updateObjectInLayer(this.selectedObject);
             CanvasManager.redraw();
+            this.updateTextPropertiesPanel();
             return;
         }
         
@@ -628,19 +820,6 @@ const ToolsManager = {
             
             if (obj) {
                 console.log('СОЗДАН ОБЪЕКТ ТИПА:', obj.type);
-                
-                // Добавляем объект через CanvasManager.addObject (который создаст новый слой)
-                if (CanvasManager && CanvasManager.addObject) {
-                    CanvasManager.addObject(obj);
-                    console.log('Объект ДОБАВЛЕН в новый слой. Тип:', obj.type);
-                } else {
-                    // Fallback если addObject не существует
-                    console.warn('CanvasManager.addObject не найден, использую старый метод');
-                    if (CanvasManager && CanvasManager.objects) {
-                        CanvasManager.objects.push(obj);
-                        CanvasManager.redraw();
-                    }
-                }
             } else {
                 console.log('Объект НЕ создан');
             }
@@ -672,38 +851,70 @@ const ToolsManager = {
 
             if (!obj) continue;
 
-            if (obj.type === 'rect' || obj.type === 'circle' || obj.type === 'ellipse') {
-                if (x >= obj.x && x <= obj.x + obj.width && 
-                    y >= obj.y && y <= obj.y + obj.height) {
-                    return obj;
-                }
-            } else if (obj.type === 'line') {
-                const distance = this.distanceToLine(x, y, obj.x1, obj.y1, obj.x2, obj.y2);
-                if (distance < 10) return obj;
-            } else if (obj.type === 'path') {
-                for (let j = 0; j < obj.points.length - 1; j++) {
-                    const distance = this.distanceToLine(x, y, 
-                        obj.points[j].x, obj.points[j].y, 
-                        obj.points[j+1].x, obj.points[j+1].y);
-                    if (distance < 10) return obj;
-                }
-            } else if (obj.type === 'text') {
-                if (x >= obj.x && x <= obj.x + obj.width && 
-                    y >= obj.y && y <= obj.y + obj.height) {
-                    return obj;
-                }
-            } else if (obj.type === 'polygon' && obj.points) {
-                if (this.isPointInPolygon(x, y, obj.points)) {
-                    return obj;
-                }
-            } else if (obj.type === 'arrow') {
-                if (x >= obj.x && x <= obj.x + obj.width && 
-                    y >= obj.y && y <= obj.y + obj.height) {
-                    return obj;
+            if (this.isPointOnObject(x, y, obj)) {
+                return obj;
+            }
+        }
+        return null;
+    },
+
+    findLayerAtPoint(x, y) {
+        if (!CanvasManager.layers || !Array.isArray(CanvasManager.layers)) return null;
+
+        for (let layerIndex = CanvasManager.layers.length - 1; layerIndex >= 0; layerIndex--) {
+            const layer = CanvasManager.layers[layerIndex];
+            if (!layer || !layer.visible || layer.locked || !Array.isArray(layer.objects)) continue;
+
+            for (let objIndex = layer.objects.length - 1; objIndex >= 0; objIndex--) {
+                const obj = layer.objects[objIndex];
+                if (!obj) continue;
+                if (this.isPointOnObject(x, y, obj)) {
+                    return { layer, layerIndex, object: obj };
                 }
             }
         }
         return null;
+    },
+
+    isPointOnObject(x, y, obj) {
+        if (!obj) return false;
+
+        if (obj.type === 'rect' || obj.type === 'circle' || obj.type === 'ellipse') {
+            return x >= obj.x && x <= obj.x + obj.width && 
+                   y >= obj.y && y <= obj.y + obj.height;
+        }
+
+        if (obj.type === 'line') {
+            const distance = this.distanceToLine(x, y, obj.x1, obj.y1, obj.x2, obj.y2);
+            return distance < 10;
+        }
+
+        if (obj.type === 'path' || obj.type === 'pencil' || obj.type === 'eraser') {
+            if (!obj.points) return false;
+            for (let j = 0; j < obj.points.length - 1; j++) {
+                const distance = this.distanceToLine(x, y, 
+                    obj.points[j].x, obj.points[j].y, 
+                    obj.points[j+1].x, obj.points[j+1].y);
+                if (distance < 10) return true;
+            }
+            return false;
+        }
+
+        if (obj.type === 'text') {
+            return x >= obj.x && x <= obj.x + obj.width && 
+                   y >= obj.y && y <= obj.y + obj.height;
+        }
+
+        if (obj.type === 'polygon' && obj.points) {
+            return this.isPointInPolygon(x, y, obj.points);
+        }
+
+        if (obj.type === 'arrow') {
+            return x >= obj.x && x <= obj.x + obj.width && 
+                   y >= obj.y && y <= obj.y + obj.height;
+        }
+
+        return false;
     },
     
     isPointInPolygon(x, y, points) {
@@ -824,6 +1035,13 @@ const ToolsManager = {
                 this.selectedObjects.push(...layer.objects);
             }
         });
+        
+        if (this.selectedObjects.length > 0) {
+            this.selectedObject = this.selectedObjects[0];
+            // Обновляем панель свойств при выделении
+            this.updateTextPropertiesPanel();
+        }
+
         this.allObjectsSelected = this.selectedObjects.length > 0;
         CanvasManager.redraw();
         return this.selectedObjects;
@@ -835,12 +1053,10 @@ const ToolsManager = {
         const layer = CanvasManager.layers[i];
         const index = layer.objects.indexOf(obj);
         if (index !== -1) {
-            // Перерисовываем только этот слой
             layer.ctx.clearRect(0, 0, CanvasManager.width, CanvasManager.height);
             layer.objects.forEach(o => CanvasManager.drawSingleObject(layer.ctx, o));
-            
-            // Помечаем слой для обновления миниатюры
             LayersManager.invalidateLayerThumbnail(i);
+            CanvasManager.compositeDirty = true; // ← ВОТ ЭТО ОТСУТСТВУЕТ
             break;
         }
     }
@@ -1036,12 +1252,15 @@ const ToolsManager = {
             this.textInput.style.left = (screenX + 10) + 'px';
             this.textInput.style.top = (screenY + 10) + 'px';
             this.textInput.value = clickedObj.text || '';
+            this.textValue = clickedObj.text || '';
             this.textInputX = clickedObj.x;
             this.textInputY = clickedObj.y;
             // Устанавливаем размер шрифта из объекта
             this.fontSize = clickedObj.fontSize || 16;
-            document.getElementById('font-size').value = this.fontSize;
-            document.getElementById('font-size-value').textContent = this.fontSize + 'px';
+            const fontSizeInput = document.getElementById('font-size');
+            const fontSizeValue = document.getElementById('font-size-value');
+            if (fontSizeInput) fontSizeInput.value = this.fontSize;
+            if (fontSizeValue) fontSizeValue.textContent = this.fontSize + 'px';
         } else {
             console.log('Создаем новый текст');
             this.editingTextObject = null;
@@ -1056,32 +1275,31 @@ const ToolsManager = {
         this.textInput.focus();
     },
     
-            finishTextInput() {
+    finishTextInput() {
         console.log('finishTextInput вызван, текст:', this.textInput.value);
         const text = this.textInput.value.trim();
-        
         if (text && text.length > 0) {
             if (this.editingTextObject && this.editingTextObject.type === 'text') {
-                // Редактирование существующего текста
                 const obj = this.editingTextObject;
                 obj.text = text;
                 obj.fontSize = this.fontSize;
-                obj.fontFamily = 'Arial';
-                obj.strokeColor = this.strokeColor;
+                obj.fontFamily = this.fontFamily;
+                obj.fontWeight = this.fontWeight;
+                obj.fontStyle = this.fontStyle;
+                obj.textAlign = this.textAlign;
                 obj.fillColor = this.fillColor;
+                obj.strokeColor = this.strokeColor;
                 obj.strokeWidth = this.strokeWidth;
-                
-                // Обновляем размеры текста
+
                 const tempCanvas = document.createElement('canvas');
                 const tempCtx = tempCanvas.getContext('2d');
                 tempCtx.font = `${obj.fontSize}px ${obj.fontFamily}`;
                 const metrics = tempCtx.measureText(obj.text);
                 obj.width = metrics.width;
                 obj.height = obj.fontSize * 1.2;
-                
+                    
                 this.updateObjectInLayer(obj);
                 
-                // Обновляем имя слоя
                 for (let layer of CanvasManager.layers) {
                     if (layer.objects.includes(obj)) {
                         layer.name = text.length > 20 ? text.slice(0, 20) + '...' : text;
@@ -1094,144 +1312,225 @@ const ToolsManager = {
                 LayersManager.updateLayersList();
                 CanvasManager.redraw();
                 HistoryManager?.saveState();
+                
+                this.selectedObject = obj;
+                this.updateTextPropertiesPanel();
             } else if (this.textAreaObject) {
-                // Создание нового текста из выделенной области
                 const obj = this.textAreaObject;
                 obj.text = text;
-                
-                // Пересчитываем размеры текста
+                obj.fontSize = this.fontSize;
+                obj.fontFamily = this.fontFamily;
+                obj.fontWeight = this.fontWeight;
+                obj.fontStyle = this.fontStyle;
+                obj.textDecoration = this.textDecoration;
+                obj.textAlign = this.textAlign;
+                obj.fillColor = this.fillColor;
+                obj.strokeColor = this.strokeColor;
+                obj.strokeWidth = this.strokeWidth;
+                    
                 const tempCanvas = document.createElement('canvas');
                 const tempCtx = tempCanvas.getContext('2d');
-                tempCtx.font = `${obj.fontSize}px ${obj.fontFamily}`;
+                let fontString = '';
+                if (this.fontStyle === 'italic') fontString += 'italic ';
+                if (this.fontWeight === 'bold') fontString += 'bold ';
+                fontString += `${this.fontSize}px ${this.fontFamily}`;
+                tempCtx.font = fontString;
+                    
                 const metrics = tempCtx.measureText(text);
                 obj.width = metrics.width;
-                obj.height = obj.fontSize * 1.2;
-                
-                // Центрируем текст в выделенной области
-                obj.x = this.textInputX + (this.textInputWidth - obj.width) / 2;
-                obj.y = this.textInputY + (this.textInputHeight - obj.height) / 2;
-                
+                obj.height = this.fontSize * 1.2;
+                    
+                let textX = this.textInputX;
+                let textY = this.textInputY;
+                    
+                if (this.textAlign === 'center') {
+                    textX = this.textInputX + (this.textInputWidth - obj.width) / 2;
+                } else if (this.textAlign === 'right') {
+                    textX = this.textInputX + this.textInputWidth - obj.width;
+                }
+                    
+                textY = this.textInputY + (this.textInputHeight - obj.height) / 2;
+                    
+                obj.x = textX;
+                obj.y = textY;
+                    
                 CanvasManager.addObject(obj);
                 this.textAreaObject = null;
+                    
+                this.selectedObject = obj;
+                this.updateTextPropertiesPanel();
             }
         }
-        
         this.cancelTextInput();
     },
 
         updateTextProperties() {
-        if (this.selectedObject && this.selectedObject.type === 'text') {
-            this.selectedObject.fontSize = this.fontSize;
-            this.selectedObject.fillColor = this.fillColor;
-            this.selectedObject.strokeColor = this.strokeColor;
-            this.selectedObject.strokeWidth = this.strokeWidth;
-            
-            // Обновляем размеры текста
-            const tempCanvas = document.createElement('canvas');
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCtx.font = `${this.fontSize}px ${this.selectedObject.fontFamily || 'Arial'}`;
-            const metrics = tempCtx.measureText(this.selectedObject.text);
-            this.selectedObject.width = metrics.width;
-            this.selectedObject.height = this.fontSize * 1.2;
-            
-            this.updateObjectInLayer(this.selectedObject);
-            CanvasManager.redraw();
-            HistoryManager?.saveState();
-        }
-    },
-    
-    cancelTextInput() {
-        this.textInput.style.display = 'none';
-        this.textInput.value = '';
-        this.editingTextObject = null;
-    },
-    
-    colorToHex(rgb) {
-        return '#' + ((1 << 24) + (rgb[0] << 16) + (rgb[1] << 8) + rgb[2]).toString(16).slice(1);
-    },
-    
-    getHandleAtPoint(x, y, obj) {
-        const bounds = CanvasManager.getObjectBounds(obj);
-        const handleSize = 10; // размер области клика вокруг handle
-        
-        if (!bounds) return null;
-        
-        // Координаты всех 8 handle'ов
-        const handles = {
-            'nw': { x: bounds.minX, y: bounds.minY },
-            'n': { x: (bounds.minX + bounds.maxX) / 2, y: bounds.minY },
-            'ne': { x: bounds.maxX, y: bounds.minY },
-            'e': { x: bounds.maxX, y: (bounds.minY + bounds.maxY) / 2 },
-            'se': { x: bounds.maxX, y: bounds.maxY },
-            's': { x: (bounds.minX + bounds.maxX) / 2, y: bounds.maxY },
-            'sw': { x: bounds.minX, y: bounds.maxY },
-            'w': { x: bounds.minX, y: (bounds.minY + bounds.maxY) / 2 }
-        };
-        
-        // Проверяем расстояние до каждого handle'а
-        for (const [name, pos] of Object.entries(handles)) {
-            const dist = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
-            if (dist <= handleSize) {
-                return name;
+            if (this.selectedObject && this.selectedObject.type === 'text') {
+                // Сохраняем старую позицию
+                const oldX = this.selectedObject.x;
+                const oldY = this.selectedObject.y;
+                const oldWidth = this.selectedObject.width;
+                
+                // Обновляем свойства
+                this.selectedObject.text = this.textValue || this.selectedObject.text;
+                this.selectedObject.fontSize = this.fontSize;
+                this.selectedObject.fontFamily = this.fontFamily;
+                this.selectedObject.fontWeight = this.fontWeight;
+                this.selectedObject.fontStyle = this.fontStyle;
+                this.selectedObject.textDecoration = this.textDecoration;
+                this.selectedObject.textAlign = this.textAlign;
+                this.selectedObject.fillColor = this.fillColor;
+                this.selectedObject.strokeColor = this.strokeColor;
+                this.selectedObject.strokeWidth = this.strokeWidth;
+                
+                // Пересчитываем размеры текста
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                let fontString = '';
+                if (this.fontStyle === 'italic') fontString += 'italic ';
+                if (this.fontWeight === 'bold') fontString += 'bold ';
+                fontString += `${this.fontSize}px ${this.fontFamily}`;
+                tempCtx.font = fontString;
+                
+                const metrics = tempCtx.measureText(this.selectedObject.text);
+                const newWidth = metrics.width;
+                const newHeight = this.fontSize * 1.2;
+                
+                // Корректируем позицию в зависимости от выравнивания
+                // Чтобы текст не "уезжал" при смене выравнивания
+                if (this.textAlign === 'center') {
+                    // Центр остаётся на месте
+                    this.selectedObject.x = oldX + (oldWidth / 2) - (newWidth / 2);
+                } else if (this.textAlign === 'right') {
+                    // Правый край остаётся на месте
+                    this.selectedObject.x = oldX + oldWidth - newWidth;
+                }
+                // left - позиция не меняется
+                
+                this.selectedObject.width = newWidth;
+                this.selectedObject.height = newHeight;
+                
+                this.updateObjectInLayer(this.selectedObject);
+                CanvasManager.redraw();
+                HistoryManager?.saveState();
+                
+                console.log('Text updated - position preserved:', {
+                    oldX, newX: this.selectedObject.x,
+                    oldWidth, newWidth
+                });
             }
-        }
+        },
+        cancelTextInput() {
+            this.textInput.style.display = 'none';
+            this.textInput.value = '';
+            this.editingTextObject = null;
+        },
+    
+        colorToHex(rgb) {
+            return '#' + ((1 << 24) + (rgb[0] << 16) + (rgb[1] << 8) + rgb[2]).toString(16).slice(1);
+        },
         
-        return null;
-    },
+        getHandleAtPoint(x, y, obj) {
+            const bounds = CanvasManager.getObjectBounds(obj);
+            const handleSize = 10; // размер области клика вокруг handle
+            
+            if (!bounds) return null;
+            
+            // Координаты всех 8 handle'ов
+            const handles = {
+                'nw': { x: bounds.minX, y: bounds.minY },
+                'n': { x: (bounds.minX + bounds.maxX) / 2, y: bounds.minY },
+                'ne': { x: bounds.maxX, y: bounds.minY },
+                'e': { x: bounds.maxX, y: (bounds.minY + bounds.maxY) / 2 },
+                'se': { x: bounds.maxX, y: bounds.maxY },
+                's': { x: (bounds.minX + bounds.maxX) / 2, y: bounds.maxY },
+                'sw': { x: bounds.minX, y: bounds.maxY },
+                'w': { x: bounds.minX, y: (bounds.minY + bounds.maxY) / 2 }
+            };
+        
+            // Проверяем расстояние до каждого handle'а
+            for (const [name, pos] of Object.entries(handles)) {
+                const dist = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
+                if (dist <= handleSize) {
+                    return name;
+                }
+            }
+            
+            return null;
+        },
         
         applyBoundsToObject(obj, newBounds) {
-        const oldBounds = CanvasManager.getObjectBounds(obj);
-        if (!oldBounds) return;
-        
-        const oldWidth = oldBounds.maxX - oldBounds.minX;
-        const oldHeight = oldBounds.maxY - oldBounds.minY;
-        const newWidth = newBounds.maxX - newBounds.minX;
-        const newHeight = newBounds.maxY - newBounds.minY;
-        
-        // Предотвращаем деление на ноль
-        const scaleX = oldWidth !== 0 ? newWidth / oldWidth : 1;
-        const scaleY = oldHeight !== 0 ? newHeight / oldHeight : 1;
-        
-        // Применяем трансформацию в зависимости от типа объекта
-        if (obj.type === 'rect' || obj.type === 'ellipse' || obj.type === 'circle') {
-            obj.x = newBounds.minX;
-            obj.y = newBounds.minY;
-            obj.width = newWidth;
-            obj.height = newHeight;
-        } else if (obj.type === 'line' || obj.type === 'arrow') {
-            obj.x1 = newBounds.minX + (obj.x1 - oldBounds.minX) * scaleX;
-            obj.y1 = newBounds.minY + (obj.y1 - oldBounds.minY) * scaleY;
-            obj.x2 = newBounds.minX + (obj.x2 - oldBounds.minX) * scaleX;
-            obj.y2 = newBounds.minY + (obj.y2 - oldBounds.minY) * scaleY;
-        } else if (obj.type === 'polygon') {
-            if (obj.points && obj.points.length > 0) {
-                obj.points = obj.points.map(p => ({
-                    x: newBounds.minX + (p.x - oldBounds.minX) * scaleX,
-                    y: newBounds.minY + (p.y - oldBounds.minY) * scaleY
-                }));
-            }
-        } else if (obj.type === 'path') {
-            if (obj.points && obj.points.length > 0) {
-                obj.points = obj.points.map(p => ({
-                    x: newBounds.minX + (p.x - oldBounds.minX) * scaleX,
-                    y: newBounds.minY + (p.y - oldBounds.minY) * scaleY
-                }));
-            }
-        } else if (obj.type === 'text') {
-            // Для текста изменяем только позицию (не масштабируем шрифт при resize)
-            // При resize текста - меняем размер шрифта
-            const avgScale = (scaleX + scaleY) / 2;
-            obj.fontSize = Math.max(8, Math.min(72, (obj.fontSize || 16) * avgScale));
-            obj.x = newBounds.minX;
-            obj.y = newBounds.minY;
+            const oldBounds = CanvasManager.getObjectBounds(obj);
+            if (!oldBounds) return;
             
-            // Пересчитываем размеры текста
-            const tempCanvas = document.createElement('canvas');
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCtx.font = `${obj.fontSize}px ${obj.fontFamily || 'Arial'}`;
-            const metrics = tempCtx.measureText(obj.text);
-            obj.width = metrics.width;
-            obj.height = obj.fontSize * 1.2;
+            const oldWidth = oldBounds.maxX - oldBounds.minX;
+            const oldHeight = oldBounds.maxY - oldBounds.minY;
+            const newWidth = newBounds.maxX - newBounds.minX;
+            const newHeight = newBounds.maxY - newBounds.minY;
+            
+            // Предотвращаем деление на ноль
+            const scaleX = oldWidth !== 0 ? newWidth / oldWidth : 1;
+            const scaleY = oldHeight !== 0 ? newHeight / oldHeight : 1;
+            
+            // Применяем трансформацию в зависимости от типа объекта
+            if (obj.type === 'rect' || obj.type === 'ellipse' || obj.type === 'circle') {
+                obj.x = newBounds.minX;
+                obj.y = newBounds.minY;
+                obj.width = newWidth;
+                obj.height = newHeight;
+            } else if (obj.type === 'line' || obj.type === 'arrow') {
+                obj.x1 = newBounds.minX + (obj.x1 - oldBounds.minX) * scaleX;
+                obj.y1 = newBounds.minY + (obj.y1 - oldBounds.minY) * scaleY;
+                obj.x2 = newBounds.minX + (obj.x2 - oldBounds.minX) * scaleX;
+                obj.y2 = newBounds.minY + (obj.y2 - oldBounds.minY) * scaleY;
+            } else if (obj.type === 'polygon') {
+                if (obj.points && obj.points.length > 0) {
+                    obj.points = obj.points.map(p => ({
+                        x: newBounds.minX + (p.x - oldBounds.minX) * scaleX,
+                        y: newBounds.minY + (p.y - oldBounds.minY) * scaleY
+                    }));
+                }
+            } else if (obj.type === 'path') {
+                if (obj.points && obj.points.length > 0) {
+                    obj.points = obj.points.map(p => ({
+                        x: newBounds.minX + (p.x - oldBounds.minX) * scaleX,
+                        y: newBounds.minY + (p.y - oldBounds.minY) * scaleY
+                    }));
+                }
+            } else if (obj.type === 'text') {
+                // ИСПРАВЛЕНО: При resize текста меняем размер шрифта пропорционально
+                const avgScale = (scaleX + scaleY) / 2;
+                let newFontSize = (obj.fontSize || 16) * avgScale;
+                
+                // Ограничиваем размер шрифта
+                newFontSize = Math.max(8, Math.min(999, newFontSize));
+                
+                obj.fontSize = newFontSize;
+                
+                // Обновляем позицию - сохраняем верхний левый угол
+                obj.x = newBounds.minX;
+                obj.y = newBounds.minY;
+                
+                // Пересчитываем размеры текста после изменения шрифта
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                let fontString = '';
+                if (obj.fontStyle === 'italic') fontString += 'italic ';
+                if (obj.fontWeight === 'bold') fontString += 'bold ';
+                fontString += `${obj.fontSize}px ${obj.fontFamily || 'Arial Narrow'}`;
+                tempCtx.font = fontString;
+                
+                const metrics = tempCtx.measureText(obj.text);
+                obj.width = metrics.width;
+                obj.height = obj.fontSize * 1.2;
+                
+                // Обновляем ползунок размера и панель свойств сразу при ресайзе текста
+                if (this.selectedObject === obj) {
+                    this.fontSize = obj.fontSize;
+                    this.updateTextPropertiesPanel();
+                }
+                
+                console.log('Text resized: new fontSize =', obj.fontSize, 'new bounds =', obj.width, obj.height);
+            }
         }
-    }
-};
+    };
