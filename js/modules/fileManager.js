@@ -1,4 +1,3 @@
-// Менеджер проектных и файловых операций
 const FileManager = {
     currentFileName: null,
     selectedPreset: null,
@@ -11,15 +10,19 @@ const FileManager = {
         this.createFormatGrid();
     },
 
+    currentProjectName: null,
+
     cacheElements() {
         this.newProjectModal = document.getElementById('newProjectModal');
         this.newWidth = document.getElementById('newWidth');
         this.newHeight = document.getElementById('newHeight');
+        this.projectNameInput = document.getElementById('projectName');
         this.openFileInput = document.getElementById('openFileInput');
         this.fileModal = document.getElementById('fileModal');
         this.fileModalTitle = document.getElementById('fileModalTitle');
         this.fileNameInput = document.getElementById('fileNameInput');
         this.fileFormatSelect = document.getElementById('fileFormatSelect');
+        this.projectTitle = document.getElementById('projectTitle');
     },
 
     createPresetGrid() {
@@ -81,7 +84,6 @@ const FileManager = {
             item.addEventListener('click', () => {
                 container.querySelectorAll('.format-item').forEach(i => i.classList.remove('selected'));
                 item.classList.add('selected');
-                // Обновляем select для обратной совместимости
                 const format = item.dataset.format;
                 const option = Array.from(this.fileFormatSelect.options).find(opt => opt.value === format);
                 if (option) this.fileFormatSelect.value = format;
@@ -90,16 +92,18 @@ const FileManager = {
     },
 
     setupListeners() {
-        // новый проект
         document.querySelector('[title="Новый проект"]').addEventListener('click', () => {
             this.newProjectModal.classList.remove('hidden');
             this.newWidth.value = CanvasManager.width;
             this.newHeight.value = CanvasManager.height;
+            this.projectNameInput.value = this.currentProjectName || '';
         });
         
         document.getElementById('createProjectBtn').addEventListener('click', () => {
             const w = parseInt(this.newWidth.value) || 1200;
             const h = parseInt(this.newHeight.value) || 800;
+            const projectName = this.projectNameInput.value.trim();
+            this.setProjectName(projectName);
             CanvasManager.newProject(w, h);
             this.currentFileName = null;
             this.newProjectModal.classList.add('hidden');
@@ -113,7 +117,6 @@ const FileManager = {
             if (e.target === this.newProjectModal) this.newProjectModal.classList.add('hidden');
         });
 
-        // открытие
         this.openFileInput.addEventListener('change', e => {
             if (e.target.files.length) {
                 this.loadImageFile(e.target.files[0]);
@@ -136,7 +139,6 @@ const FileManager = {
             this.openFileInput.click();
         });
 
-        // модалка сохранения/экспорта
         document.getElementById('fileModalOk').addEventListener('click', () => this.performSaveExport());
         document.getElementById('fileModalCancel').addEventListener('click', () => {
             this.fileModal.classList.add('hidden');
@@ -156,11 +158,10 @@ const FileManager = {
             const img = new Image();
             img.onload = () => {
                 CanvasManager.newProject(img.width, img.height);
-                // Добавляем изображение как объект в слой с кешированным изображением
                 const imageObj = {
                     type: 'imageData',
                     imageData: evt.target.result,
-                    cachedImage: img  // Кешируем уже загруженное изображение
+                    cachedImage: img
                 };
                 CanvasManager.activeLayer.objects.push(imageObj);
                 CanvasManager.redraw();
@@ -183,7 +184,6 @@ const FileManager = {
         let name = this.fileNameInput.value.trim();
         if (!name) name = 'untitled';
         
-        // Получаем формат из выбранного элемента или из select
         const selectedFormat = document.querySelector('.format-item.selected');
         const format = selectedFormat ? selectedFormat.dataset.format : this.fileFormatSelect.value;
         
@@ -208,6 +208,14 @@ const FileManager = {
             this.currentFileName = name;
         }
         this.fileModal.classList.add('hidden');
+    },
+
+    setProjectName(name) {
+        this.currentProjectName = name || null;
+        if (this.projectTitle) {
+            this.projectTitle.textContent = name ? ` — ${name}` : '';
+        }
+        document.title = name ? `ASGREIR — ${name}` : 'ASGREIR';
     },
 
     getMimeType(format) {

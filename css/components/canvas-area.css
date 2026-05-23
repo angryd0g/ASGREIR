@@ -26,6 +26,10 @@
     min-width: 400px;
 }
 
+.canvas-container.no-grid {
+    background-image: none;
+}
+
 .canvas-container::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -54,6 +58,8 @@
 }
 
 #drawCanvas {
+    position: relative;
+    z-index: 2;
     background: white;
     box-shadow: var(--shadow);
     display: block;

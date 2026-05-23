@@ -5,6 +5,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    position: relative;
     border-bottom: 1px solid var(--border-color);
     -webkit-app-region: drag;
     height: 56px;
@@ -34,6 +35,9 @@
 
 /* Центральная группа кнопок истории */
 .history-group {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
     gap: 4px;
     padding: 4px;

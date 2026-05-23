@@ -4,6 +4,7 @@
 @import url('components/layers-panel.css');
 @import url('components/status-bar.css');
 @import url('components/modals.css');
+@import url('components/print-preview.css');
 @import url('responsive.css');
 
 /* Глобальные переменные и сброс */

@@ -5,6 +5,14 @@ const CanvasManager = {
     ctx: null,
     gridCanvas: null,      // Canvas для сетки
     gridCtx: null,         // Контекст для сетки
+    gridOverlay: null,
+    gridOverlayCtx: null,
+    // Линейки
+    showRuler: false,
+    rulerTop: null,
+    rulerLeft: null,
+    rulerTopCtx: null,
+    rulerLeftCtx: null,
     layers: [],
     activeLayerIndex: 0,
     width: 1920,
@@ -74,6 +82,7 @@ const CanvasManager = {
         this.createGridCanvas();
         this.createCompositeCanvas();
 
+
         // Пересоздание слоёв
         this.layers.forEach(layer => {
             const newCanvas = document.createElement('canvas');
@@ -103,6 +112,11 @@ const CanvasManager = {
         this.previewCtx = this.previewCanvas.getContext('2d');
         this.previewCtx.scale(this.pixelRatio, this.pixelRatio);
         if (oldPreview) this.previewCtx.drawImage(oldPreview, 0, 0);
+
+        if (this.showRuler) {
+            this.removeRulerOverlay();
+            this.createRulerOverlay();
+        }
     },
 
     // Создание отдельного canvas для сетки
@@ -156,6 +170,172 @@ const CanvasManager = {
         this.syncGridOverlayTransform();
     },
 
+    // Создать overlay линейки (верхнюю и левую)
+    createRulerOverlay() {
+        const container = this.canvas.parentElement;
+        if (!container) return;
+
+        // Удаляем существующие
+        if (this.rulerTop) this.rulerTop.remove();
+        if (this.rulerLeft) this.rulerLeft.remove();
+
+        // Позиционируем контейнер относительно
+        if (window.getComputedStyle(container).position === 'static') container.style.position = 'relative';
+
+        const canvasLeft = this.canvas.offsetLeft;
+        const canvasTop = this.canvas.offsetTop;
+        const canvasCssWidth = this.canvas.clientWidth;
+        const canvasCssHeight = this.canvas.clientHeight;
+
+        // Верхняя линейка располагается непосредственно над холстом
+        this.rulerTop = document.createElement('canvas');
+        this.rulerTop.width = Math.round(this.width * this.pixelRatio);
+        this.rulerTop.height = Math.round(24 * this.pixelRatio);
+        this.rulerTop.style.position = 'absolute';
+        this.rulerTop.style.top = `${canvasTop - 24}px`;
+        this.rulerTop.style.left = `${canvasLeft}px`;
+        this.rulerTop.style.width = `${canvasCssWidth}px`;
+        this.rulerTop.style.height = `24px`;
+        this.rulerTop.style.pointerEvents = 'none';
+        this.rulerTop.style.zIndex = '1';
+        this.rulerTop.style.transformOrigin = 'top left';
+        this.rulerTopCtx = this.rulerTop.getContext('2d');
+        this.rulerTopCtx.scale(this.pixelRatio, this.pixelRatio);
+
+        // Левая линейка располагается непосредственно слева от холста
+        this.rulerLeft = document.createElement('canvas');
+        this.rulerLeft.width = Math.round(24 * this.pixelRatio);
+        this.rulerLeft.height = Math.round(this.height * this.pixelRatio);
+        this.rulerLeft.style.position = 'absolute';
+        this.rulerLeft.style.top = `${canvasTop}px`;
+        this.rulerLeft.style.left = `${canvasLeft - 24}px`;
+        this.rulerLeft.style.width = `24px`;
+        this.rulerLeft.style.height = `${canvasCssHeight}px`;
+        this.rulerLeft.style.pointerEvents = 'none';
+        this.rulerLeft.style.zIndex = '1';
+        this.rulerLeft.style.transformOrigin = 'top left';
+        this.rulerLeftCtx = this.rulerLeft.getContext('2d');
+        this.rulerLeftCtx.scale(this.pixelRatio, this.pixelRatio);
+
+        container.appendChild(this.rulerTop);
+        container.appendChild(this.rulerLeft);
+
+        this.drawRulers();
+        this.syncGridOverlayTransform();
+    },
+
+    // Удалить линейку overlay
+    removeRulerOverlay() {
+        if (this.rulerTop) { this.rulerTop.remove(); this.rulerTop = null; this.rulerTopCtx = null; }
+        if (this.rulerLeft) { this.rulerLeft.remove(); this.rulerLeft = null; this.rulerLeftCtx = null; }
+    },
+
+    // Рисуем деления линейки
+    drawRulers() {
+        if (!this.rulerTopCtx || !this.rulerLeftCtx) return;
+
+        const topCtx = this.rulerTopCtx;
+        const leftCtx = this.rulerLeftCtx;
+
+        const width = this.width;
+        const height = this.height;
+
+        // Очистка
+        topCtx.clearRect(0, 0, width, 40);
+        leftCtx.clearRect(0, 0, 40, height);
+
+        topCtx.fillStyle = '#2d2d2d';
+        topCtx.fillRect(0, 0, width, 24);
+        leftCtx.fillStyle = '#2d2d2d';
+        leftCtx.fillRect(0, 0, 24, height);
+
+        topCtx.strokeStyle = '#999';
+        topCtx.fillStyle = '#ddd';
+        topCtx.font = '10px Arial';
+        topCtx.textBaseline = 'top';
+
+        // Основные и промежуточные деления каждые 50px и 10px
+        for (let x = 0; x <= width; x += 10) {
+            const isMajor = x % 50 === 0;
+            const y1 = isMajor ? 0 : 8;
+            topCtx.beginPath();
+            topCtx.moveTo(x + 0.5, 24);
+            topCtx.lineTo(x + 0.5, 24 - y1);
+            topCtx.strokeStyle = isMajor ? '#666' : '#444';
+            topCtx.lineWidth = isMajor ? 1 : 0.7;
+            topCtx.stroke();
+            if (isMajor) {
+                topCtx.fillText(String(x), x + 2, 2);
+            }
+        }
+
+        leftCtx.strokeStyle = '#999';
+        leftCtx.fillStyle = '#ddd';
+        leftCtx.font = '10px Arial';
+        leftCtx.textBaseline = 'top';
+
+        for (let y = 0; y <= height; y += 10) {
+            const isMajor = y % 50 === 0;
+            const x1 = isMajor ? 0 : 8;
+            leftCtx.beginPath();
+            leftCtx.moveTo(24, y + 0.5);
+            leftCtx.lineTo(24 - x1, y + 0.5);
+            leftCtx.strokeStyle = isMajor ? '#666' : '#444';
+            leftCtx.lineWidth = isMajor ? 1 : 0.7;
+            leftCtx.stroke();
+            if (isMajor) {
+                leftCtx.save();
+                leftCtx.translate(2, y + 2);
+                leftCtx.rotate(-Math.PI/2);
+                leftCtx.fillText(String(y), 0, 0);
+                leftCtx.restore();
+            }
+        }
+    },
+
+    // Синхронизировать трансформацию overlay'ей с основным canvas
+    syncGridOverlayTransform() {
+        const offsetX = (NavigationManager && NavigationManager.offsetX) ? NavigationManager.offsetX : 0;
+        const offsetY = (NavigationManager && NavigationManager.offsetY) ? NavigationManager.offsetY : 0;
+        const scale = (NavigationManager && NavigationManager.scale) ? NavigationManager.scale : 1;
+        const transform = `translate3d(${offsetX}px, ${offsetY}px, 0) scale(${scale})`;
+
+        const canvasLeft = this.canvas.offsetLeft;
+        const canvasTop = this.canvas.offsetTop;
+        const canvasCssWidth = this.canvas.clientWidth;
+        const canvasCssHeight = this.canvas.clientHeight;
+
+        if (this.gridOverlay) {
+            this.gridOverlay.style.transform = transform;
+            this.gridOverlay.style.transformOrigin = 'top left';
+        }
+        if (this.rulerTop) {
+            this.rulerTop.style.left = `${canvasLeft}px`;
+            this.rulerTop.style.top = `${canvasTop - 24}px`;
+            this.rulerTop.style.width = `${canvasCssWidth}px`;
+            this.rulerTop.style.transform = transform;
+            this.rulerTop.style.transformOrigin = 'top left';
+        }
+        if (this.rulerLeft) {
+            this.rulerLeft.style.left = `${canvasLeft - 24}px`;
+            this.rulerLeft.style.top = `${canvasTop}px`;
+            this.rulerLeft.style.height = `${canvasCssHeight}px`;
+            this.rulerLeft.style.transform = transform;
+            this.rulerLeft.style.transformOrigin = 'top left';
+        }
+    },
+
+    // Переключатель линейки
+    toggleRuler() {
+        this.showRuler = !this.showRuler;
+        if (this.showRuler) {
+            this.createRulerOverlay();
+        } else {
+            this.removeRulerOverlay();
+        }
+        return this.showRuler;
+    },
+
 // Рисование сетки на отдельном canvas
     drawGridOnCanvas(ctx) {
         ctx.clearRect(0, 0, this.width, this.height);
@@ -184,6 +364,15 @@ const CanvasManager = {
     // Переключение видимости сетки
     toggleGrid() {
         this.showGrid = !this.showGrid;
+        const container = this.canvas?.parentElement;
+        if (container) {
+            container.classList.toggle('no-grid', !this.showGrid);
+        }
+        if (!this.showGrid && this.gridOverlay) {
+            this.gridOverlay.remove();
+            this.gridOverlay = null;
+            this.gridOverlayCtx = null;
+        }
         this.redraw();
         return this.showGrid;
     },
@@ -245,6 +434,11 @@ const CanvasManager = {
             this.previewCanvas.height = this.canvas.height;
             this.previewCtx = this.previewCanvas.getContext('2d');
             this.previewCtx.scale(this.pixelRatio, this.pixelRatio);
+        }
+
+        if (this.showRuler) {
+            this.removeRulerOverlay();
+            this.createRulerOverlay();
         }
 
         // очистка слоёв и создание фонового
@@ -366,9 +560,12 @@ const CanvasManager = {
         this.ctx.globalAlpha = 1;
 
         // Рисуем сетку поверх слоёв (не влияет на данные слоёв)
-        if (this.showGrid && this.gridCanvas) {
-            this.ctx.globalCompositeOperation = 'source-over';
-            this.ctx.drawImage(this.gridCanvas, 0, 0, this.width, this.height);
+        // Если есть overlay (gridOverlay), он уже рисует сетку поверх, поэтому избегаем двойного рендера
+        if (this.showGrid) {
+            if (!this.gridOverlay && this.gridCanvas) {
+                this.ctx.globalCompositeOperation = 'source-over';
+                this.ctx.drawImage(this.gridCanvas, 0, 0, this.width, this.height);
+            }
         }
 
         // Preview всегда поверх всего

@@ -8,6 +8,15 @@ document.addEventListener('DOMContentLoaded', () => {
     LayersManager.init();
     NavigationManager.init(container, canvas);
     HistoryManager.init();
+    FileManager.init();
+    PrintManager.init();
+
+    const printBtn = document.getElementById('printBtn');
+    if (printBtn) {
+        printBtn.addEventListener('click', () => {
+            PrintManager.showPreview();
+        });
+    }
 
     let isPanning = false;
     let isRightButtonPanning = false;
@@ -18,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas.addEventListener('mouseup', onMouseUp);
     canvas.addEventListener('wheel', onWheel, { passive: false });
     canvas.addEventListener('contextmenu', e => e.preventDefault());
+    container.addEventListener('contextmenu', e => e.preventDefault());
     canvas.addEventListener('mousemove', updateCoordinates);
     
     // ДОБАВЛЕНО: Обработчик двойного клика для редактирования текста
@@ -71,6 +81,11 @@ document.addEventListener('DOMContentLoaded', () => {
             link.download = 'asgreir-export.png';
             link.href = exportCanvas.toDataURL('image/png');
             link.click();
+        }
+
+        if (e.ctrlKey && e.key === 'p') {
+            e.preventDefault();
+            PrintManager.showPreview();
         }
 
         if (e.ctrlKey && e.key === 'a') {
@@ -320,5 +335,20 @@ document.addEventListener('DOMContentLoaded', () => {
             icon.className = CanvasManager.showGrid ? 'fas fa-border-all' : 'fas fa-border-none';
             toggleGridBtn.title = CanvasManager.showGrid ? 'Скрыть сетку' : 'Показать сетку';
         }
+    }
+
+    const toggleRulerBtn = document.getElementById('toggleRuler');
+    if (toggleRulerBtn) {
+        toggleRulerBtn.addEventListener('click', () => {
+            const isVisible = CanvasManager.toggleRuler ? CanvasManager.toggleRuler() : false;
+            const icon = toggleRulerBtn.querySelector('i');
+            if (icon) {
+                if (isVisible) {
+                    toggleRulerBtn.title = 'Скрыть линейку';
+                } else {
+                    toggleRulerBtn.title = 'Показать линейку';
+                }
+            }
+        });
     }
 });

@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="css/components/canvas-area.css">
     <link rel="stylesheet" href="css/components/layers-panel.css">
     <link rel="stylesheet" href="css/components/status-bar.css">
+    <link rel="stylesheet" href="css/components/print-preview.css">
     <link rel="stylesheet" href="css/responsive.css">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -23,15 +24,18 @@
         <header class="app-header">
             <div class="logo">
             <img src="assets/icons/logo.png" alt="ASGREIR Logo" width="32" height="32">
-                <h1>ASGREIR - Графический редактор</h1>
+                <h1>ASGREIR - Графический редактор<span id="projectTitle"></span></h1>
             </div>
-            <div class="header-actions">
+            <div class="history-group">
                 <button class="history-btn" id="undo" title="Отменить (Ctrl+Z)"><i class="fas fa-undo"></i></button>
                 <button class="history-btn" id="redo" title="Повторить (Ctrl+Y)"><i class="fas fa-redo"></i></button>
+            </div>
+            <div class="header-actions">
                 <button class="header-btn" title="Новый проект"><i class="fas fa-file"></i></button>
                 <button class="header-btn" title="Открыть"><i class="fas fa-folder-open"></i></button>
                 <button class="header-btn" title="Сохранить"><i class="fas fa-save"></i></button>
                 <button class="header-btn" title="Экспорт"><i class="fas fa-download"></i></button>
+                <button class="header-btn" id="printBtn" title="Печать (Ctrl+P)"><i class="fas fa-print"></i></button>
             </div>
         </header>
         <div class="main-layout">
@@ -264,6 +268,9 @@
                     <button class="nav-btn" id="toggleGrid" title="Показать/скрыть сетку">
                         <i class="fas fa-border-all"></i>
                     </button>
+                    <button class="nav-btn" id="toggleRuler" title="Линейка">
+                        <i class="fas fa-ruler"></i>
+                    </button>
                     <button class="nav-btn" id="zoomIn" title="Приблизить (Ctrl+↑)">
                         <i class="fas fa-search-plus"></i>
                     </button>
@@ -383,7 +390,8 @@
     <script src="js/core/layers.js"></script>
     <script src="js/core/navigation.js"></script>
     <script src="js/core/history.js"></script>
-    <script src="js/core/fileManager.js"></script>
+    <script src="js/modules/fileManager.js"></script>
+    <script src="js/modules/printManager.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
