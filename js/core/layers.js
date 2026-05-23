@@ -28,24 +28,29 @@ const LayersManager = {
 
                 if (e.target.closest('.layer-visibility')) {
                     const layer = CanvasManager.layers[idx];
-                    // Запрещаем скрыть "Фон" (первый слой)
                     if (idx === 0) {
                         console.warn('Нельзя скрыть слой "Фон" - это основной фон холста');
                         return;
                     }
                     layer.visible = !layer.visible;
-                    this.updateLayersList(); // Обновляем отображение
+                    this.updateLayersList();
                     CanvasManager.compositeDirty = true;
                     CanvasManager.redraw();
                 } else if (e.target.closest('.layer-lock')) {
                     const layer = CanvasManager.layers[idx];
                     layer.locked = !layer.locked;
                     this.updateLayersList();
+                    this.updateCollapsedLayerPreview();
+                } else if (e.target.closest('.layer-delete')) {
+                    // === ДОБАВЛЕНО: Обработка удаления слоя ===
+                    e.stopPropagation(); // Чтобы клик не выбрал этот слой перед удалением
+                    this.deleteLayer(idx);
                 } else {
                     // выбор слоя → делаем его активным
                     this.selectedLayerIndex = idx;
                     CanvasManager.activeLayerIndex = idx;
                     this.updateLayersList();
+                    this.updateCollapsedLayerPreview();
                     CanvasManager.redraw();
                 }
             });
@@ -55,6 +60,46 @@ const LayersManager = {
         this.setupDragAndDrop();
     },
     
+    // Метод удаления слоя
+    deleteLayer(idx) {
+        // Защита: нельзя удалить фоновый слой
+        if (idx === 0) {
+            console.warn("Нельзя удалить фоновый слой!");
+            return;
+        }
+
+        // Подтверждение удаления (по желанию, можно убрать, если мешает)
+        if (!confirm(`Вы уверены, что хотите удалить слой "${CanvasManager.layers[idx].name}"?`)) {
+            return;
+        }
+
+        // Удаляем слой из массива CanvasManager
+        CanvasManager.layers.splice(idx, 1);
+
+        // Корректируем индексы активного и выбранного слоя
+        if (this.selectedLayerIndex >= CanvasManager.layers.length) {
+            this.selectedLayerIndex = CanvasManager.layers.length - 1;
+        } else if (this.selectedLayerIndex > idx) {
+            this.selectedLayerIndex--;
+        }
+
+        // Синхронизируем индекс с CanvasManager
+        CanvasManager.activeLayerIndex = this.selectedLayerIndex;
+
+        // Полностью обновляем весь интерфейс слоев
+        this.updateLayersList();
+        this.updateCollapsedLayerPreview();
+
+        // Помечаем холст грязным и принудительно перерисовываем
+        CanvasManager.compositeDirty = true;
+        CanvasManager.redraw();
+
+        // Сохраняем шаг в историю (Ctrl+Z), если менеджер истории существует
+        if (typeof HistoryManager !== 'undefined' && HistoryManager.saveState) {
+            HistoryManager.saveState();
+        }
+    },
+
     updateLayersList() {
         const list = document.getElementById('layersList');
         if (!list) return;
@@ -97,6 +142,12 @@ const LayersManager = {
                         <button class="layer-lock" title="Блокировка">
                             <i class="fas ${lock}"></i>
                         </button>
+                        
+                        ${!isBackgroundLayer ? `
+                        <button class="layer-delete" title="Удалить слой">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -106,6 +157,41 @@ const LayersManager = {
         
         // Асинхронно обновляем миниатюры для слоев, которые изменились
         this.scheduleThumbnailUpdates();
+        this.updateCollapsedLayerPreview();
+    },
+
+    updateCollapsedLayerPreview() {
+        const layersPanel = document.querySelector('.layers-panel');
+        const previewName = document.getElementById('currentLayerName');
+        const preview = document.getElementById('layersCollapsedPreview');
+        
+        if (!layersPanel || !previewName || !preview) return;
+
+        // Обновляем только если панель свёрнута
+        if (!layersPanel.classList.contains('collapsed-panel')) {
+            return;
+        }
+
+        // Получаем активный слой (текущий выбранный)
+        let activeLayer = CanvasManager.activeLayer;
+        
+        // Если активного слоя нет, берём последний
+        if (!activeLayer && CanvasManager.layers.length > 0) {
+            activeLayer = CanvasManager.layers[CanvasManager.layers.length - 1];
+        }
+        
+        if (activeLayer) {
+            const visibility = activeLayer.visible ? '' : ' (скрыт)';
+            const lock = activeLayer.locked ? ' 🔒' : '';
+            let name = activeLayer.name;
+            if (name.length > 30) {
+                name = name.slice(0, 27) + '...';
+            }
+            previewName.textContent = `${name}${visibility}${lock}`;
+            previewName.title = activeLayer.name; // Подсказка с полным именем
+        } else {
+            previewName.textContent = 'Нет слоёв';
+        }
     },
     
     // Генерация миниатюры слоя с высоким качеством
@@ -218,7 +304,6 @@ const LayersManager = {
         this.isUpdatingThumbnails = false;
     },
     
-    // Обновление миниатюры конкретного слоя в DOM
     updateSingleLayerThumbnail(index, thumbnailUrl) {
         const list = document.getElementById('layersList');
         if (!list) return;
@@ -230,6 +315,10 @@ const LayersManager = {
                 thumbnailDiv.style.backgroundImage = `url('${thumbnailUrl}')`;
                 thumbnailDiv.style.backgroundColor = 'transparent';
             }
+        }
+
+        if (index === CanvasManager.activeLayerIndex) {
+            this.updateCollapsedLayerPreview();
         }
     },
     

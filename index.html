@@ -41,7 +41,7 @@
         <div class="main-layout">
             <!-- Левая панель - Инструменты -->
 <!-- Левая панель - Инструменты -->
-<aside class="tools-panel">
+<aside class="tools-panel" id="toolsPanel">
     <!-- ВКЛАДКА: Инструменты (основные) -->
     <div class="panel-section collapsible">
         <div class="section-header" data-toggle="tools-section">
@@ -170,6 +170,37 @@
     <div class="section-content" id="properties-section">
         <div class="properties-panel">
             <!-- Общие настройки (для всех инструментов) -->
+
+            <div class="property-group" id="brushTypeSection" style="display: none;">
+                <label><i class="fas fa-paint-brush"></i> Тип кисти</label>
+                <select id="brushTypeSelect" class="brush-select">
+                    <option value="pencil">Карандаш</option>
+                    <option value="brush">Кисть</option>
+                    <option value="marker">Маркер</option>
+                    <option value="spray">Спрей</option>
+                </select>
+                
+                <!-- Превью кистей -->
+                <div class="brush-preview" id="brushPreview">
+                    <div class="brush-preview-item" data-brush="pencil">
+                        <canvas width="40" height="30" id="previewPencil"></canvas>
+                        <span>Карандаш</span>
+                    </div>
+                    <div class="brush-preview-item" data-brush="brush">
+                        <canvas width="40" height="30" id="previewBrush"></canvas>
+                        <span>Кисть</span>
+                    </div>
+                    <div class="brush-preview-item" data-brush="marker">
+                        <canvas width="40" height="30" id="previewMarker"></canvas>
+                        <span>Маркер</span>
+                    </div>
+                    <div class="brush-preview-item" data-brush="spray">
+                        <canvas width="40" height="30" id="previewSpray"></canvas>
+                        <span>Спрей</span>
+                    </div>
+                </div>
+            </div>
+
             <div class="property-group common-properties">
                 <label>Обводка</label>
                 <div class="color-input">
@@ -254,8 +285,10 @@
             </div>
         </div>
     </div>
-</div>
-</aside>            
+</aside>
+<button type="button" id="toolsToggleBtn" class="left-panel-tail">
+    <i class="fas fa-chevron-left"></i>
+</button>
 
             <!-- Центральная область - Холст -->
             <main class="canvas-area">
@@ -283,21 +316,32 @@
                     </button>
                 </div>
             </main>
-            
-            <!-- Правая панель - Слои -->
-             <aside class="layers-panel">
-                <div class="panel-section">
-                    <div class="panel-header">
-                        <h3>Слои</h3>
-                        <button class="add-layer-btn" title="Добавить слой">
-                            <i class="fas fa-plus"></i>
-                        </button>
-                    </div>
-                    <div class="layers-list" id="layersList">
-                        <!-- Слои будут добавляться сюда динамически -->
+                        
+            <aside class="layers-panel" id="layersPanel">
+                <button type="button" id="layersPanelToggle" class="right-panel-tail">
+                    <i class="fas fa-chevron-right"></i>
+                </button>            
+                <div class="panel-header">
+                    <h3>Слои</h3>
+                    <div class="header-controls" style="display: flex; gap: 6px; align-items: center;">
+                        <button class="add-layer-btn"><i class="fas fa-plus"></i></button>
+                        <!-- Кнопка теперь тут, она никогда не исчезнет -->
                     </div>
                 </div>
-            </aside>    
+                
+                <!-- Твоя рабочая секция со списком слоев -->
+                <div class="panel-section" id="layersSection">
+                    <div class="layers-list" id="layersList">
+                        <!-- Сюда JS рендерит слои -->
+                    </div>
+                </div>
+
+                <!-- Малое окно превью (отображается только при скрытии) -->
+                <div class="layers-collapsed-preview" id="layersCollapsedPreview">
+                    <div class="layer-preview-label">Активный слой</div>
+                    <div class="layer-preview-name" id="currentLayerName">Фон</div>
+                </div>
+            </aside>
         </div>
 
         <!-- Нижняя панель статуса -->

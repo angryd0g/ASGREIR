@@ -35,13 +35,15 @@ const ToolsManager = {
     fontWeight: 'normal',
     fontStyle: 'normal',   
     textDecoration: 'none', 
-    textAlign: 'left', 
+    textAlign: 'left',
+    brushType: 'pencil', 
     
     init() {
         this.setupTools();
         this.setupProperties();
         this.setupTextInput();
         this.setupCollapsibleSections();
+        this.drawBrushPreviews();
     },
     
     setupTools() {
@@ -68,10 +70,11 @@ const ToolsManager = {
             // Показываем/скрываем настройки текста
             const textProperties = document.getElementById('text-properties');
             const fontSizeGroup = document.getElementById('font-size-group');
+            const brushSection = document.getElementById('brushTypeSection');
             
+            // ========== ГЛАВНОЕ: Показываем настройки текста когда выбран инструмент "Текст" ==========
             if (textProperties) {
-                // Показываем полные настройки текста только когда выбран текст
-                if (this.selectedObject && this.selectedObject.type === 'text') {
+                if (this.currentTool === 'text') {
                     textProperties.style.display = 'block';
                 } else {
                     textProperties.style.display = 'none';
@@ -82,16 +85,27 @@ const ToolsManager = {
                 fontSizeGroup.style.display = this.currentTool === 'text' ? 'block' : 'none';
             }
             
+            // Показываем выбор кистей только для карандаша
+            if (brushSection) {
+                if (this.currentTool === 'pencil') {
+                    brushSection.style.display = 'block';
+                } else {
+                    brushSection.style.display = 'none';
+                }
+            }
+            
+            // При выборе инструмента "Текст" снимаем выделение
             if (this.currentTool === 'text') {
                 this.selectedObject = null;
                 CanvasManager.redraw();
             }
             
+            // Снимаем выделение при смене инструмента
             if (this.currentTool !== 'select') {
                 this.selectedObject = null;
             }
         },
-
+        
         updateTextPropertiesPanel() {
             const textProperties = document.getElementById('text-properties');
             if (!textProperties) return;
@@ -312,6 +326,35 @@ const ToolsManager = {
                     }
                 });
             }
+
+            const brushSelect = document.getElementById('brushTypeSelect');
+            if (brushSelect) {
+                brushSelect.addEventListener('change', (e) => {
+                    this.brushType = e.target.value;
+                    console.log('Выбрана кисть:', this.brushType);
+                    
+                    // Обновляем активный класс в превью
+                    document.querySelectorAll('.brush-preview-item').forEach(item => {
+                        item.classList.toggle('active', item.dataset.brush === this.brushType);
+                    });
+                });
+            }
+
+            // Добавляем клики по превью
+            document.querySelectorAll('.brush-preview-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const brush = item.dataset.brush;
+                    if (brush) {
+                        this.brushType = brush;
+                        const brushSelect = document.getElementById('brushTypeSelect');
+                        if (brushSelect) brushSelect.value = brush;
+                        
+                        document.querySelectorAll('.brush-preview-item').forEach(i => {
+                            i.classList.toggle('active', i === item);
+                        });
+                    }
+                });
+            });
         },
 
         drawTextAreaPreview(ctx, x, y) {
@@ -565,16 +608,79 @@ const ToolsManager = {
             }
             
             this.currentPath = {
+                id: `path-${Date.now()}`,
                 type: 'path',
                 points: [{x, y}],
                 strokeColor: this.strokeColor,
                 strokeWidth: this.strokeWidth,
-                tool: this.currentTool
+                tool: this.currentTool,
+                brushType: this.brushType // Сохраняем тип кисти
             };
         }
         
         return true;
         
+    },
+    
+    drawBrushPreviews() {
+        const previews = [
+            { id: 'previewPencil', type: 'pencil', strokeWidth: 2 },
+            { id: 'previewBrush', type: 'brush', strokeWidth: 4 },
+            { id: 'previewMarker', type: 'marker', strokeWidth: 8 },
+            { id: 'previewSpray', type: 'spray', strokeWidth: 6 }
+        ];
+        
+        previews.forEach(preview => {
+            const canvas = document.getElementById(preview.id);
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.beginPath();
+            ctx.moveTo(5, 15);
+            ctx.lineTo(20, 15);
+            ctx.lineTo(30, 10);
+            ctx.lineTo(35, 20);
+            
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = preview.strokeWidth;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            if (preview.type === 'brush') {
+                ctx.shadowBlur = preview.strokeWidth / 2;
+                ctx.shadowColor = '#000000';
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            } else if (preview.type === 'marker') {
+                ctx.globalAlpha = 0.5;
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+            } else if (preview.type === 'spray') {
+                ctx.fillStyle = '#000000';
+                for (let i = 0; i < 30; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const radius = Math.random() * 10;
+                    const xOff = Math.cos(angle) * radius;
+                    const yOff = Math.sin(angle) * radius;
+                    ctx.fillRect(20 + xOff, 15 + yOff, 1.5, 1.5);
+                }
+            } else {
+                ctx.stroke();
+            }
+        });
+    },
+
+    // Добавьте вызов этого метода в init
+    init() {
+        this.setupTools();
+        this.setupProperties();
+        this.setupTextInput();
+        this.setupCollapsibleSections();
+        this.drawBrushPreviews(); // ДОБАВИТЬ ЭТУ СТРОКУ
     },
     
     drawTemporary(ctx, x, y) {

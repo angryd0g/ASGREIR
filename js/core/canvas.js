@@ -3,11 +3,10 @@ const CanvasManager = {
     previewCanvas: null,
     previewCtx: null,
     ctx: null,
-    gridCanvas: null,      // Canvas для сетки
-    gridCtx: null,         // Контекст для сетки
+    gridCanvas: null,
+    gridCtx: null,
     gridOverlay: null,
     gridOverlayCtx: null,
-    // Линейки
     showRuler: false,
     rulerTop: null,
     rulerLeft: null,
@@ -20,7 +19,7 @@ const CanvasManager = {
     defaultWidth: 1920,
     defaultHeight: 1080,
     pixelRatio: window.devicePixelRatio || 1,
-    showGrid: true,        // Показывать ли сетку
+    showGrid: true,
     compositeCanvas: null,
     compositeCtx: null,
     compositeDirty: true,
@@ -43,14 +42,12 @@ const CanvasManager = {
         this.addLayer("Фон");
         this.redraw();
 
-        // Preview-слой
         this.previewCanvas = document.createElement('canvas');
         this.previewCanvas.width = this.canvas.width;
         this.previewCanvas.height = this.canvas.height;
         this.previewCtx = this.previewCanvas.getContext('2d');
         this.previewCtx.scale(this.pixelRatio, this.pixelRatio);
         
-        // Включаем альфа-композицию для ластика
         this.previewCtx.globalCompositeOperation = 'source-over';
     },
     
@@ -406,6 +403,8 @@ const CanvasManager = {
             this.redraw();
         }
 
+        LayersManager?.updateCollapsedLayerPreview();
+
         return layer;
     },
 
@@ -728,20 +727,81 @@ const CanvasManager = {
 
         if (obj.type === 'path' || obj.type === 'pencil' || obj.type === 'eraser') {
             if (obj.points && obj.points.length > 0) {
-                ctx.beginPath();
-                ctx.moveTo(obj.points[0].x, obj.points[0].y);
-                for (let i = 1; i < obj.points.length; i++) {
-                    ctx.lineTo(obj.points[i].x, obj.points[i].y);
-                }
+                
                 if (obj.tool === 'eraser') {
-                    // Ластик стирает (делает прозрачными) пиксели
+                    // Ластик по-прежнему стирает (делает прозрачными) пиксели
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.moveTo(obj.points[0].x, obj.points[0].y);
+                    for (let i = 1; i < obj.points.length; i++) {
+                        ctx.lineTo(obj.points[i].x, obj.points[i].y);
+                    }
                     ctx.globalCompositeOperation = 'destination-out';
                     ctx.stroke();
-                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.restore();
                 } else {
-                    ctx.stroke();
+                    // Отрисовка кистей для Карандаша
+                    const type = obj.brushType || 'pencil';
+                    
+                    ctx.save();
+                    
+                    if (type === 'pencil') {
+                        // 1. ОБЫЧНЫЙ КАРАНДАШ
+                        ctx.beginPath();
+                        ctx.moveTo(obj.points[0].x, obj.points[0].y);
+                        for (let i = 1; i < obj.points.length; i++) {
+                            ctx.lineTo(obj.points[i].x, obj.points[i].y);
+                        }
+                        ctx.stroke();
+                        
+                    } else if (type === 'brush') {
+                        // 2. ХУДОЖЕСТВЕННАЯ КИСТЬ (Мягкие края за счет тени)
+                        ctx.shadowBlur = ctx.lineWidth / 2;
+                        ctx.shadowColor = ctx.strokeStyle;
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(obj.points[0].x, obj.points[0].y);
+                        for (let i = 1; i < obj.points.length; i++) {
+                            ctx.lineTo(obj.points[i].x, obj.points[i].y);
+                        }
+                        ctx.stroke();
+                        
+                    } else if (type === 'marker') {
+                        // 3. МАРКЕР (Полупрозрачный, широкий, со скошенными углами)
+                        ctx.globalAlpha = 0.4; // Эффект хайлайтера
+                        ctx.lineCap = 'square';
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(obj.points[0].x, obj.points[0].y);
+                        for (let i = 1; i < obj.points.length; i++) {
+                            ctx.lineTo(obj.points[i].x, obj.points[i].y);
+                        }
+                        ctx.stroke();
+                        
+                    } else if (type === 'spray') {
+                        // 4. БАЛЛОНЧИК (Напыление точек по траектории)
+                        ctx.fillStyle = ctx.strokeStyle;
+                        const radius = ctx.lineWidth * 2;
+                        
+                        obj.points.forEach(p => {
+                            // Генерация псевдослучайного сида для стабильной перерисовки
+                            let MathRandom = Math.sin(p.x + p.y) * 10000;
+                            let seed = MathRandom - Math.floor(MathRandom);
+                            
+                            for (let j = 0; j < 10; j++) {
+                                const angle = (seed * j * 77) * Math.PI;
+                                const r = (seed * j * 33 % 1) * radius;
+                                const splashX = p.x + Math.cos(angle) * r;
+                                const splashY = p.y + Math.sin(angle) * r;
+                                
+                                ctx.fillRect(splashX, splashY, 1.5, 1.5);
+                            }
+                        });
+                    }
+                    
+                    ctx.restore();
                 }
-            }
+            }        
         } else if (obj.type === 'line') {
             ctx.beginPath();
             ctx.moveTo(obj.x1, obj.y1);

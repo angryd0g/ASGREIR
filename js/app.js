@@ -2,21 +2,90 @@ document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('drawCanvas');
     const container = document.getElementById('canvasContainer');
 
-    // Инициализация
-    CanvasManager.init(canvas);
-    ToolsManager.init();
-    LayersManager.init();
-    NavigationManager.init(container, canvas);
-    HistoryManager.init();
-    FileManager.init();
-    PrintManager.init();
+    // Безопасная инициализация менеджеров
+    try { if (typeof CanvasManager !== 'undefined') CanvasManager.init(canvas); } catch(e) { console.error("Ошибка в CanvasManager:", e); }
+    try { if (typeof ToolsManager !== 'undefined') ToolsManager.init(); } catch(e) { console.error("Ошибка в ToolsManager:", e); }
+    try { if (typeof LayersManager !== 'undefined') LayersManager.init(); } catch(e) { console.error("Ошибка в LayersManager:", e); }
+    try { if (typeof NavigationManager !== 'undefined') NavigationManager.init(container, canvas); } catch(e) { console.error("Ошибка в NavigationManager:", e); }
+    try { if (typeof HistoryManager !== 'undefined') HistoryManager.init(); } catch(e) { console.error("Ошибка в HistoryManager:", e); }
+    try { if (typeof FileManager !== 'undefined') FileManager.init(); } catch(e) { console.error("Ошибка в FileManager:", e); }
+    try { if (typeof PrintManager !== 'undefined') PrintManager.init(); } catch(e) { console.error("Ошибка в PrintManager:", e); }
 
     const printBtn = document.getElementById('printBtn');
-    if (printBtn) {
+    if (printBtn && typeof PrintManager !== 'undefined') {
         printBtn.addEventListener('click', () => {
             PrintManager.showPreview();
         });
     }
+
+    // --- УПРАВЛЕНИЕ ПАНЕЛЯМИ (ИНСТРУМЕНТЫ И СЛОИ) ---
+    // Ищем панели и по классу, и по ID на случай, если в разметке что-то отличается
+    const toolsPanel = document.querySelector('.tools-panel') || document.getElementById('toolsPanel');
+    const layersPanel = document.querySelector('.layers-panel') || document.getElementById('layersPanel');
+    
+    const toolsPanelToggle = document.getElementById('toolsPanelToggle') || document.getElementById('toolsToggleBtn');
+    const layersPanelToggle = document.getElementById('layersPanelToggle') || document.getElementById('layersToggleBtn');
+
+    function updateToolsPanelToggle() {
+        if (!toolsPanel || !toolsPanelToggle) return;
+        const collapsed = toolsPanel.classList.contains('collapsed-panel');
+        
+        // Вращаем стрелку: если свернута — смотрит вправо (180deg), если раскрыта — влево (0deg)
+        const icon = toolsPanelToggle.querySelector('i');
+        if (icon) {
+            icon.style.transform = collapsed ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
+        
+        if (window.CanvasManager && CanvasManager.setupHighResCanvas) {
+            setTimeout(() => { CanvasManager.setupHighResCanvas(); CanvasManager.redraw(); }, 300);
+        }
+    }
+
+    function updateLayersPanelToggle() {
+        if (!layersPanel || !layersPanelToggle) return;
+        const collapsed = layersPanel.classList.contains('collapsed-panel');
+        
+        // Вращаем стрелку: если свернута — смотрит влево (180deg), если раскрыта — вправо (0deg)
+        const icon = layersPanelToggle.querySelector('i');
+        if (icon) {
+            icon.style.transform = collapsed ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
+        
+        // --- УПРАВЛЕНИЕ ОТОБРАЖЕНИЕМ ПЕРЕНЕСЕНО В CSS ---
+        // Строку с list.style.display мы удалили, чтобы JavaScript не глушил список слоев!
+        
+        if (collapsed && window.LayersManager && LayersManager.updateCollapsedLayerPreview) {
+            LayersManager.updateCollapsedLayerPreview();
+        }
+
+        if (window.CanvasManager && CanvasManager.setupHighResCanvas) {
+            setTimeout(() => { CanvasManager.setupHighResCanvas(); CanvasManager.redraw(); }, 300);
+        }
+    }
+
+    // Слушатель клика для левой панели
+    if (toolsPanelToggle) {
+        toolsPanelToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (!toolsPanel) return;
+            toolsPanel.classList.toggle('collapsed-panel');
+            updateToolsPanelToggle();
+        });
+    }
+
+    // Слушатель клика для правой панели
+    if (layersPanelToggle) {
+        layersPanelToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (!layersPanel) return;
+            layersPanel.classList.toggle('collapsed-panel');
+            updateLayersPanelToggle();
+        });
+    }
+
+    // Инициализация состояний стрелок при старте
+    updateToolsPanelToggle();
+    updateLayersPanelToggle();
 
     let isPanning = false;
     let isRightButtonPanning = false;
@@ -254,8 +323,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (obj.type === 'line' || obj.type === 'path' || obj.type === 'pencil' || 
                     obj.type === 'polygon' || obj.type === 'arrow' ||
                     (obj.width > 2 && obj.height > 2)) {
+                    
                     CanvasManager.addObject(obj);
                     CanvasManager.compositeDirty = true;
+                    
+                    // === ДОБАВЛЕНО ДЛЯ МГНОВЕННОГО ОБНОВЛЕНИЯ МИНИАТЮРЫ ===
+                    if (typeof LayersManager !== 'undefined') {
+                        // Помечаем текущий активный слой как требующий обновления
+                        LayersManager.invalidateLayerThumbnail(CanvasManager.activeLayerIndex);
+                        // Заставляем менеджер немедленно перерисовать очередь миниатюр
+                        LayersManager.scheduleThumbnailUpdates();
+                    }
                 }
             }
 

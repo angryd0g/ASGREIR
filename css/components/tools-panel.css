@@ -1,13 +1,12 @@
-/* Левая панель инструментов */
 .tools-panel {
     width: 260px;
     background: var(--bg-secondary);
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border-color) var(--bg-tertiary);
+    overflow-y: auto;   /* ← ИСПРАВЛЕНО */
+    overflow-x: hidden;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .tools-panel::-webkit-scrollbar {
@@ -79,11 +78,92 @@
     color: white;
 }
 
+.panel-footer {
+    padding: 12px 16px;
+    display: flex;
+    justify-content: center;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+}
+
+.panel-toggle-btn {
+    background: var(--bg-tertiary);
+    border: none;
+    color: var(--text-secondary);
+    padding: 10px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 13px;
+}
+
+.panel-toggle-btn:hover {
+    background: var(--accent);
+    color: white;
+    transform: translateY(-1px);
+}
+
+.tools-panel.collapsed-panel {
+    width: 1px;
+}
+
+.tools-panel.collapsed-panel .tool-text,
+.tools-panel.collapsed-panel .panel-header h3 {
+    display: none !important;
+}
+
+.tools-panel.collapsed-panel .tool-btn {
+    justify-content: center;
+    padding: 8px 0;
+}
+
+.tools-panel.collapsed-panel .panel-section {
+    display: none;
+}
+
+.left-panel-tail {
+    position: fixed;
+    left: 260px; /* Прижата к открытой панели */
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 50px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-left: none; /* Чтобы сливалась с краем экрана */
+    border-radius: 0 8px 8px 0;
+    color: var(--text-secondary);
+    cursor: pointer;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s;
+}
+
+.left-panel-tail:hover {
+    background: var(--bg-tertiary);
+    color: var(--accent);
+}
+
+.left-panel-tail i {
+    transition: transform 0.3s ease;
+    font-size: 11px;
+}
+
+.tools-panel.collapsed-panel + .left-panel-tail {
+    left: 0;
+}
+
+.tools-panel.collapsed-panel + .left-panel-tail i {
+    transform: rotate(180deg);
+}
+
 /* Панель свойств */
 .properties-panel {
     display: flex;
     flex-direction: column;
-    gap: 16px; /* Увеличиваем отступы */
+    gap: 16px;
 }
 
 .property-group {
@@ -413,6 +493,103 @@
     caret-color: #000;
     text-shadow: none;
     -webkit-text-fill-color: #000;
+}
+
+/* Секция выбора кистей */
+#brushTypeSection {
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+#brushTypeSection label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+}
+
+#brushTypeSection label i {
+    font-size: 14px;
+}
+
+.brush-select {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.brush-select:hover {
+    border-color: var(--accent);
+    background: #3a3a3a;
+}
+
+.brush-select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(176, 176, 176, 0.2);
+}
+
+/* Превью кистей */
+.brush-preview {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.brush-preview-item {
+    flex: 1;
+    min-width: 50px;
+    text-align: center;
+    padding: 8px 4px;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+}
+
+.brush-preview-item:hover {
+    transform: translateY(-2px);
+    background: #3a3a3a;
+}
+
+.brush-preview-item.active {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.brush-preview-item.active span {
+    color: white;
+}
+
+.brush-preview-item canvas {
+    display: block;
+    margin: 0 auto 4px;
+    background: white;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.brush-preview-item span {
+    font-size: 9px;
+    color: var(--text-secondary);
+    display: block;
+}
+
+.brush-preview-item.active span {
+    color: white;
 }
 
 /* Кнопки стилей текста */

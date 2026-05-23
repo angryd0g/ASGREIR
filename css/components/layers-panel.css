@@ -1,15 +1,16 @@
-/* Правая панель слоев */
 .layers-panel {
+    position: relative !important;
     width: 260px;
     background: var(--bg-secondary);
     border-left: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: visible;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .layers-panel .panel-section {
-    padding: 16px;
+    padding: 16px 0;
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -20,8 +21,10 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
     flex-shrink: 0;
+    padding: 16px 16px 12px 16px; 
+    border-bottom: 1px solid var(--border-color); 
+    margin-bottom: 12px; 
 }
 
 .panel-header h3 {
@@ -30,6 +33,7 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin: 0;
+    line-height: 28px; 
 }
 
 .add-layer-btn {
@@ -44,6 +48,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0; 
 }
 
 .add-layer-btn:hover {
@@ -60,9 +65,153 @@
     flex-direction: column;
     gap: 6px;
     min-height: 0;
-    padding-right: 4px;
+    padding: 0 16px; 
 }
 
+.layers-collapsed-preview {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    margin-top: 8px;
+}
+
+.layers-collapsed-preview .layer-preview-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+}
+
+.layers-collapsed-preview .layer-preview-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.layers-panel.collapsed-panel {
+    width: 72px !important;
+    height: auto !important; 
+    max-height: 80px !important; 
+    position: absolute !important;
+    right: 0 !important;
+    top: 50% !important; 
+    transform: translateY(-50%) !important; 
+    border-radius: 12px 0 0 12px !important; 
+    overflow: visible !important; 
+    border: 1px solid var(--border-color) !important;
+    border-right: none !important; 
+    box-shadow: -1px 2px 8px rgba(0, 0, 0, 0.15) !important; 
+    z-index: 99 !important;
+    background: var(--bg-primary) !important; 
+}
+
+.layers-panel.collapsed-panel .panel-section {
+    padding: 12px 0 !important; 
+    height: 100% !important;
+    min-height: 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    display: flex !important;
+    border: none !important; 
+    background: transparent !important;
+    overflow: hidden !important; 
+    border-radius: 12px 0 0 12px !important; 
+}
+
+.layers-panel.collapsed-panel .layers-list {
+    display: flex !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: auto !important;
+    background: transparent !important;
+}
+
+.layers-panel.collapsed-panel .panel-header,
+.layers-panel.collapsed-panel .layers-collapsed-preview {
+    display: none !important;
+}
+
+.layers-panel.collapsed-panel .layer-item {
+    display: none !important;
+}
+
+.layers-panel.collapsed-panel .layer-item.active {
+    display: flex !important; 
+    justify-content: center !important;
+    align-items: center !important;
+    width: 48px !important;
+    height: 48px !important;
+    padding: 0 !important;
+    border-radius: 8px !important;
+    transform: none !important;
+    background: var(--bg-tertiary) !important;
+    border: 1px solid var(--border-color) !important;
+}
+
+.layers-panel.collapsed-panel .layer-item.active .layer-info,
+.layers-panel.collapsed-panel .layer-item.active .layer-actions,
+.layers-panel.collapsed-panel .layer-item.active .layer-type {
+    display: none !important;
+}
+
+.layers-panel.collapsed-panel .layer-item.active .layer-thumbnail {
+    width: 40px !important;
+    height: 40px !important;
+    margin: 0 !important;
+    display: block !important;
+    border-radius: 4px !important;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.right-panel-tail {
+    position: absolute;
+    top: 50%;
+    left: -24px; /* Сдвигаем влево, чтобы кнопка торчала наружу из панели */
+    transform: translateY(-50%);
+    width: 24px;
+    height: 50px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-right: none; /* Убираем правую границу, так как она прижата к панели */
+    border-radius: 8px 0 0 8px; /* Скругляем только левые углы */
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    transition: all 0.2s ease, left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.right-panel-tail:hover {
+    background: var(--bg-tertiary);
+    color: var(--accent);
+}
+
+.right-panel-tail i, 
+.left-panel-tail i {
+    transition: transform 0.3s ease;
+}
+
+.layers-panel.collapsed-panel .right-panel-tail {
+    display: flex !important;
+    height: 40px !important; 
+    border-radius: 6px 0 0 6px !important; 
+    left: -20px !important; 
+    z-index: 100 !important;
+}
 /* Стилизация скроллбара */
 .layers-list::-webkit-scrollbar {
     width: 6px;
