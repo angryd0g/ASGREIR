@@ -42,6 +42,41 @@
             <!-- Левая панель - Инструменты -->
 <!-- Левая панель - Инструменты -->
 <aside class="tools-panel" id="toolsPanel">
+    <div class="panel-section collapsible active" id="bgSection">
+        <div class="section-header" onclick="this.parentElement.classList.toggle('active')">
+            <h3>Фон</h3>
+            <i class="fas fa-chevron-down"></i>
+        </div>
+        <div class="section-content">
+            <div class="color-picker-group">
+                <input type="color" id="bgColor" value="#ffffff">
+                <span class="color-value" id="bgColorValue">#FFFFFF</span>
+            </div>
+            
+            <div class="bg-presets">
+                <button class="bg-preset active" data-bg="white">
+                    <div class="bg-preview" style="background: #ffffff; border: 1px solid var(--border-color);"></div>
+                    <span>Светлый</span>
+                </button>
+                <button class="bg-preset" data-bg="gray">
+                    <div class="bg-preview" style="background: #f0f0f0;"></div>
+                    <span>Серый</span>
+                </button>
+                <button class="bg-preset" data-bg="dark">
+                    <div class="bg-preview" style="background: #1e1e1e;"></div>
+                    <span>Тёмный</span>
+                </button>
+                <button class="bg-preset" data-bg="grid">
+                    <div class="bg-preview bg-preview-grid"></div>
+                    <span>Сетка</span>
+                </button>
+                <button class="bg-preset" data-bg="dots">
+                    <div class="bg-preview bg-preview-dots"></div>
+                    <span>Точки</span>
+                </button>
+            </div>
+        </div>
+    </div>
     <!-- ВКЛАДКА: Инструменты (основные) -->
     <div class="panel-section collapsible">
         <div class="section-header" data-toggle="tools-section">
@@ -173,12 +208,6 @@
 
             <div class="property-group" id="brushTypeSection" style="display: none;">
                 <label><i class="fas fa-paint-brush"></i> Тип кисти</label>
-                <select id="brushTypeSelect" class="brush-select">
-                    <option value="pencil">Карандаш</option>
-                    <option value="brush">Кисть</option>
-                    <option value="marker">Маркер</option>
-                    <option value="spray">Спрей</option>
-                </select>
                 
                 <!-- Превью кистей -->
                 <div class="brush-preview" id="brushPreview">
@@ -218,6 +247,18 @@
             <div class="property-group common-properties">
                 <label>Толщина <span id="stroke-width-value">2px</span></label>
                 <input type="range" id="stroke-width" min="1" max="20" value="2">
+            </div>
+
+            <div class="property-group">
+                <label>Вращение</label>
+                <div class="text-align-buttons">
+                    <button type="button" id="rotate-counterclockwise" class="style-btn" title="Повернуть влево">
+                        <i class="fas fa-rotate-left"></i>
+                    </button>
+                    <button type="button" id="rotate-clockwise" class="style-btn" title="Повернуть вправо">
+                        <i class="fas fa-rotate-right"></i>
+                    </button>
+                </div>
             </div>
 
             <!-- НАСТРОЙКИ ТЕКСТА (по умолчанию скрыты) -->

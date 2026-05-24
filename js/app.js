@@ -280,6 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (handle) {
             const cursorMap = {
+                'rotate': 'crosshair',
                 'nw': 'nwse-resize',
                 'n': 'ns-resize',
                 'ne': 'nesw-resize',
@@ -429,4 +430,59 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    const bgColorInput = document.getElementById('bgColor'); // Используем правильный ID из HTML
+    const bgColorValue = document.getElementById('bgColorValue');
+
+    if (bgColorInput) {
+        bgColorInput.addEventListener('input', (e) => {
+            const color = e.target.value;
+            
+            if (bgColorValue) {
+                bgColorValue.textContent = color.toUpperCase();
+            }
+            
+            if (typeof CanvasManager !== 'undefined') {
+                CanvasManager.setBackgroundColor(color);
+                
+                // Сбрасываем активный класс у пресетов, так как выбран кастомный цвет
+                document.querySelectorAll('.bg-preset').forEach(p => p.classList.remove('active'));
+            }
+        });
+    }
+
+    const bgPresets = document.querySelectorAll('.bg-preset');
+    bgPresets.forEach(preset => {
+        preset.addEventListener('click', () => {
+            bgPresets.forEach(p => p.classList.remove('active'));
+            preset.classList.add('active');
+            
+            const bgType = preset.dataset.bg; // 'white', 'gray', 'dark', 'grid', 'dots'
+            
+            if (typeof CanvasManager !== 'undefined') {
+                if (bgType === 'white') {
+                    CanvasManager.setBackgroundColor('#ffffff');
+                    CanvasManager.setGridType('none');
+                } else if (bgType === 'gray') {
+                    CanvasManager.setBackgroundColor('#f0f0f0');
+                    CanvasManager.setGridType('none');
+                } else if (bgType === 'dark') {
+                    CanvasManager.setBackgroundColor('#1e1e1e');
+                    CanvasManager.setGridType('none');
+                } else if (bgType === 'grid') {
+                    CanvasManager.setBackgroundColor('#ffffff');
+                    CanvasManager.setGridType('grid');
+                } else if (bgType === 'dots') {
+                    CanvasManager.setBackgroundColor('#ffffff');
+                    CanvasManager.setGridType('dots');
+                }
+
+                // Синхронизируем значение инпута цвета под выбранный пресет
+                if (bgColorInput) {
+                    bgColorInput.value = CanvasManager.backgroundColor;
+                    if (bgColorValue) bgColorValue.textContent = CanvasManager.backgroundColor.toUpperCase();
+                }
+            }
+        });
+    });
 });
+

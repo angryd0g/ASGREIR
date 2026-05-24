@@ -196,69 +196,53 @@ const LayersManager = {
     
     // Генерация миниатюры слоя с высоким качеством
     generateLayerThumbnail(layer, size = 40) {
-        return new Promise((resolve) => {
-            // Создаём маленький canvas для thumbnail'а
-            const thumbCanvas = document.createElement('canvas');
-            thumbCanvas.width = size;
-            thumbCanvas.height = size;
-            const thumbCtx = thumbCanvas.getContext('2d');
+    return new Promise((resolve) => {
+        const thumbCanvas = document.createElement('canvas');
+        thumbCanvas.width = size;
+        thumbCanvas.height = size;
+        const thumbCtx = thumbCanvas.getContext('2d');
 
-            // Белый фон для thumbnail'а (показывает прозрачность)
-            thumbCtx.fillStyle = '#ffffff';
-            thumbCtx.fillRect(0, 0, size, size);
-            
-            // Рисуем шахматный фон для прозрачности
-            this.drawCheckerboard(thumbCtx, size);
-            
-            // Проверяем, есть ли содержимое на слое
-            const hasContent = layer.objects && layer.objects.length > 0;
-            
-            if (hasContent) {
-                // Вычисляем масштаб для масштабирования содержимого слоя
-                const layerWidth = CanvasManager.width;
-                const layerHeight = CanvasManager.height;
-                
-                if (layerWidth > 0 && layerHeight > 0) {
-                    const scaleX = size / layerWidth;
-                    const scaleY = size / layerHeight;
-                    const scale = Math.min(scaleX, scaleY);
-                    
-                    // Центрируем и масштабируем изображение на thumbnail'е
-                    const offsetX = (size - layerWidth * scale) / 2;
-                    const offsetY = (size - layerHeight * scale) / 2;
-                    
-                    thumbCtx.save();
-                    thumbCtx.translate(offsetX, offsetY);
-                    thumbCtx.scale(scale, scale);
-                    
-                    // Рисуем содержимое слоя на thumbnail'е
-                    thumbCtx.drawImage(layer.canvas, 0, 0);
-                    
-                    thumbCtx.restore();
-                }
-            } else {
-                // Пустой слой - показываем иконку
-                thumbCtx.fillStyle = '#333';
-                thumbCtx.font = `${size * 0.6}px "Font Awesome 6 Free"`;
-                thumbCtx.textAlign = 'center';
-                thumbCtx.textBaseline = 'middle';
-                thumbCtx.fillStyle = '#888';
-                thumbCtx.fillText('📄', size/2, size/2);
-            }
-            
-            // Добавляем тонкую рамку
-            thumbCtx.strokeStyle = '#ccc';
-            thumbCtx.lineWidth = 1;
-            thumbCtx.strokeRect(0, 0, size, size);
-            
-            // Кэшируем thumbnail
-            layer.thumbnailDataUrl = thumbCanvas.toDataURL();
-            layer.thumbnailSize = size;
-            layer.needsThumbnailUpdate = false;
-            
-            resolve(layer.thumbnailDataUrl);
-        });
-    },
+        const layerWidth  = CanvasManager.width;
+        const layerHeight = CanvasManager.height;
+        const scale   = Math.min(size / layerWidth, size / layerHeight);
+        const offsetX = (size - layerWidth  * scale) / 2;
+        const offsetY = (size - layerHeight * scale) / 2;
+
+        // Шахматка — показывает прозрачность там, где ничего нет
+        this.drawCheckerboard(thumbCtx, size);
+
+        // Для фонового слоя (первый, или с именем "Фон") показываем backgroundColor
+        const isBackground = CanvasManager.layers.indexOf(layer) === 0
+                          || layer.name === 'Фон';
+        if (isBackground && CanvasManager.backgroundColor) {
+            thumbCtx.fillStyle = CanvasManager.backgroundColor;
+            thumbCtx.fillRect(offsetX, offsetY, layerWidth * scale, layerHeight * scale);
+        }
+
+        // Рисуем ВСЕГДА — layer.canvas уже содержит и объекты, и заливку, и кисти
+        if (layerWidth > 0 && layerHeight > 0) {
+            thumbCtx.save();
+            thumbCtx.translate(offsetX, offsetY);
+            thumbCtx.scale(scale, scale);
+            // Рисуем физический canvas слоя (он уже в pixelRatio, поэтому компенсируем)
+            thumbCtx.drawImage(
+                layer.canvas,
+                0, 0, layer.canvas.width, layer.canvas.height,
+                0, 0, layerWidth, layerHeight
+            );
+            thumbCtx.restore();
+        }
+
+        thumbCtx.strokeStyle = '#555';
+        thumbCtx.lineWidth = 1;
+        thumbCtx.strokeRect(0, 0, size, size);
+
+        layer.thumbnailDataUrl = thumbCanvas.toDataURL();
+        layer.thumbnailSize = size;
+        layer.needsThumbnailUpdate = false;
+        resolve(layer.thumbnailDataUrl);
+    });
+},
     
     // Рисуем шахматный фон для показа прозрачности
     drawCheckerboard(ctx, size, cellSize = 5) {

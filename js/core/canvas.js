@@ -24,6 +24,8 @@ const CanvasManager = {
     compositeCtx: null,
     compositeDirty: true,
     _rafPending: false,
+    backgroundColor: '#ffffff',
+    gridType: 'none',
 
     scheduleRedraw() {
         if (this._rafPending) return;
@@ -33,7 +35,7 @@ const CanvasManager = {
             this.redraw();
         });
     },
-
+    
     init(canvasElement) {
         this.canvas = canvasElement;
         this.ctx = canvasElement.getContext('2d');
@@ -50,7 +52,57 @@ const CanvasManager = {
         
         this.previewCtx.globalCompositeOperation = 'source-over';
     },
+
+    setBackgroundColor(color) {
+        this.backgroundColor = color;
+        this.scheduleRedraw();
+        // Инвалидируем миниатюру фонового слоя
+        if (this.layers.length > 0) {
+            this.layers[0].needsThumbnailUpdate = true;
+            LayersManager?.invalidateLayerThumbnail(0);
+            LayersManager?.scheduleThumbnailUpdates();
+        }
+    },
     
+    setGridType(type) {
+        this.gridType = type;
+        this.scheduleRedraw();
+    },
+
+    // Новый метод ТОЛЬКО для фонового узора (заменяет старый drawGrid)
+    drawBackgroundPattern(ctx) {
+        if (this.gridType === 'none') return;
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(180, 180, 180, 0.4)';
+        ctx.fillStyle = 'rgba(180, 180, 180, 0.6)';
+        ctx.lineWidth = 1;
+        
+        const step = 20;
+
+        if (this.gridType === 'grid') {
+            ctx.beginPath();
+            for (let x = 0; x <= this.width; x += step) {
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, this.height);
+            }
+            for (let y = 0; y <= this.height; y += step) {
+                ctx.moveTo(0, y);
+                ctx.lineTo(this.width, y);
+            }
+            ctx.stroke();
+        } else if (this.gridType === 'dots') {
+            for (let x = step; x < this.width; x += step) {
+                for (let y = step; y < this.height; y += step) {
+                    ctx.beginPath();
+                    ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+        ctx.restore();
+    },
+       
     setupHighResCanvas() {
         const container = this.canvas.parentElement;
         const aspectRatio = this.defaultWidth / this.defaultHeight;
@@ -530,12 +582,15 @@ const CanvasManager = {
     redraw() {
         if (!this.ctx) return;
 
-        // Рисуем содержимое слоёв
+        // 1. Очищаем холст
         this.ctx.clearRect(0, 0, this.width, this.height);
         
-        // Белый фон для прозрачности слоёв
-        this.ctx.fillStyle = '#ffffff';
+        // 2. Заливаем холст актуальным цветом фона
+        this.ctx.fillStyle = this.backgroundColor || '#ffffff';
         this.ctx.fillRect(0, 0, this.width, this.height);
+
+        // 3. Добавляем узор фона (если он выбран в пресетах)
+        this.drawBackgroundPattern(this.ctx);
 
         // Пересобираем композит, если слои изменились
         if (this.compositeDirty) {
@@ -595,29 +650,28 @@ const CanvasManager = {
         }
     },
 
-    // Метод для получения данных пикселей без сетки (для заливки и ластика)
+    // Метод для получения данных пикселей без интерфейсной сетки (для заливки и ластика)
+    // Метод для получения данных пикселей без интерфейсной сетки (для заливки и ластика)
     getRawPixelData() {
-        // Создаем временный canvas только со слоями (без сетки)
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = this.canvas.width;
         tempCanvas.height = this.canvas.height;
         const tempCtx = tempCanvas.getContext('2d');
-        tempCtx.scale(this.pixelRatio, this.pixelRatio);
         
-        // Рисуем только содержимое слоёв
-        tempCtx.fillStyle = '#ffffff';
-        tempCtx.fillRect(0, 0, this.width, this.height);
+        // ВАЖНО: Для заливки НЕ рисуем фон! Только слои.
+        // Заливка должна работать по пикселям слоёв, игнорируя визуальный фон
         
+        // Рисуем только содержимое слоёв (без фона)
         this.layers.forEach(layer => {
             if (layer.visible) {
-                tempCtx.drawImage(layer.canvas, 0, 0, this.width, this.height);
+                tempCtx.drawImage(layer.canvas, 0, 0);
             }
         });
         
-        return tempCtx.getImageData(0, 0, this.width, this.height);
+        return tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
     },
 
-    // Получить bounding box объекта
+    // Получить bounding box объекта с учётом поворота
     getObjectBounds(obj) {
         if (!obj) return null;
         
@@ -628,6 +682,35 @@ const CanvasManager = {
             minY = obj.y;
             maxX = obj.x + obj.width;
             maxY = obj.y + obj.height;
+            
+            // Если есть угол поворота, пересчитываем bounding box
+            if (obj.angle) {
+                const centerX = obj.x + obj.width / 2;
+                const centerY = obj.y + obj.height / 2;
+                const corners = [
+                    { x: obj.x, y: obj.y },
+                    { x: obj.x + obj.width, y: obj.y },
+                    { x: obj.x + obj.width, y: obj.y + obj.height },
+                    { x: obj.x, y: obj.y + obj.height }
+                ];
+                
+                // Поворачиваем каждый угол
+                const rotatedCorners = corners.map(corner => {
+                    const dx = corner.x - centerX;
+                    const dy = corner.y - centerY;
+                    const cos = Math.cos(obj.angle);
+                    const sin = Math.sin(obj.angle);
+                    return {
+                        x: centerX + dx * cos - dy * sin,
+                        y: centerY + dx * sin + dy * cos
+                    };
+                });
+                
+                minX = Math.min(...rotatedCorners.map(c => c.x));
+                minY = Math.min(...rotatedCorners.map(c => c.y));
+                maxX = Math.max(...rotatedCorners.map(c => c.x));
+                maxY = Math.max(...rotatedCorners.map(c => c.y));
+            }
         } else if (obj.type === 'line') {
             minX = Math.min(obj.x1, obj.x2);
             minY = Math.min(obj.y1, obj.y2);
@@ -689,6 +772,25 @@ const CanvasManager = {
         ctx.setLineDash([5, 5]);
         ctx.strokeRect(bounds.x - padding, bounds.y - padding, bounds.width + padding * 2, bounds.height + padding * 2);
         ctx.setLineDash([]);
+
+        const rotHandleY = bounds.y - padding - 25; // Выносим кружок на 25px вверх
+        const rotHandleX = bounds.x + bounds.width / 2; // Строго по центру ширины
+        
+        // Рисуем линию-антенну
+        ctx.beginPath();
+        ctx.moveTo(rotHandleX, bounds.y - padding);
+        ctx.lineTo(rotHandleX, rotHandleY);
+        ctx.strokeStyle = '#0066cc';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        // Рисуем сам кружок, за который будем тянуть
+        ctx.beginPath();
+        ctx.arc(rotHandleX, rotHandleY, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.stroke();
         
         // Handles для изменения размера
         const handles = [
@@ -724,6 +826,18 @@ const CanvasManager = {
         ctx.lineCap    = 'round';
         ctx.lineJoin   = 'round';
         ctx.lineCap    = 'round';
+
+        const angle = obj.angle || 0;
+        if (angle) {
+            const bounds = this.getObjectBounds(obj);
+            if (bounds) {
+                const centerX = bounds.x + bounds.width / 2;
+                const centerY = bounds.y + bounds.height / 2;
+                ctx.translate(centerX, centerY);
+                ctx.rotate(angle);
+                ctx.translate(-centerX, -centerY);
+            }
+        }
 
         if (obj.type === 'path' || obj.type === 'pencil' || obj.type === 'eraser') {
             if (obj.points && obj.points.length > 0) {
@@ -892,6 +1006,8 @@ const CanvasManager = {
             
             ctx.restore();
         }
+
+        ctx.restore();
     },
     
     drawArrow(ctx, obj) {
@@ -956,8 +1072,11 @@ const CanvasManager = {
         const exCtx = exCanvas.getContext('2d');
 
         exCtx.scale(scale * this.pixelRatio, scale * this.pixelRatio);
-        exCtx.fillStyle = 'white';
+        
+        // Рисуем фон и декоративный узор
+        exCtx.fillStyle = this.backgroundColor || '#ffffff'; 
         exCtx.fillRect(0, 0, this.width, this.height);
+        this.drawBackgroundPattern(exCtx);
 
         this.layers.forEach(layer => {
             if (!layer.visible) return;

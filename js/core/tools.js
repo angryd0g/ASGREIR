@@ -76,7 +76,8 @@ const ToolsManager = {
             if (textProperties) {
                 if (this.currentTool === 'text') {
                     textProperties.style.display = 'block';
-                } else {
+                } else if (this.currentTool !== 'select') {
+                    // для select — updateTextPropertiesPanel() сам разберётся
                     textProperties.style.display = 'none';
                 }
             }
@@ -101,9 +102,11 @@ const ToolsManager = {
             }
             
             // Снимаем выделение при смене инструмента
-            if (this.currentTool !== 'select') {
-                this.selectedObject = null;
+            if (this.currentTool === 'select') {
+                this.updateTextPropertiesPanel();
             }
+            
+            this.updateRotateButtonsState();
         },
         
         updateTextPropertiesPanel() {
@@ -143,10 +146,20 @@ const ToolsManager = {
                 if (fontFamilySelect) fontFamilySelect.value = this.fontFamily;
                 
                 const strokeColorInput = document.getElementById('stroke-color');
-                if (strokeColorInput) strokeColorInput.value = this.strokeColor;
+                if (strokeColorInput) {
+                    strokeColorInput.value = this.strokeColor;
+                    if (strokeColorInput.nextElementSibling) {
+                        strokeColorInput.nextElementSibling.textContent = this.strokeColor;
+                    }
+                }
                 
                 const fillColorInput = document.getElementById('fill-color');
-                if (fillColorInput) fillColorInput.value = this.fillColor;
+                if (fillColorInput) {
+                    fillColorInput.value = this.fillColor;
+                    if (fillColorInput.nextElementSibling) {
+                        fillColorInput.nextElementSibling.textContent = this.fillColor;
+                    }
+                }
                 
                 const strokeWidthInput = document.getElementById('stroke-width');
                 const strokeWidthValue = document.getElementById('stroke-width-value');
@@ -172,20 +185,30 @@ const ToolsManager = {
                 if (alignCenter) alignCenter.classList.toggle('active', this.textAlign === 'center');
                 if (alignRight) alignRight.classList.toggle('active', this.textAlign === 'right');
                 
+                this.updateRotateButtonsState();
+                
                 // Показываем панель текста
                 textProperties.style.display = 'block';
             } else {
                 textProperties.style.display = 'none';
+                this.updateRotateButtonsState();
             }
         },
     
         setupProperties() {
             const strokeColorInput = document.getElementById('stroke-color');
             if (strokeColorInput) {
-                strokeColorInput.addEventListener('change', (e) => {
+                // 1. Синхронизируем стартовое значение JS с тем, что в HTML
+                this.strokeColor = strokeColorInput.value;
+                
+                // 2. Используем 'input' для реалтайм обновления
+                strokeColorInput.addEventListener('input', (e) => {
                     this.strokeColor = e.target.value;
-                    const colorValue = document.querySelector('.color-input .color-value');
-                    if (colorValue) colorValue.textContent = this.strokeColor;
+                    // 3. Обращаемся к соседнему элементу span, чтобы текст обновлялся правильно
+                    const colorValue = strokeColorInput.nextElementSibling;
+                    if (colorValue && colorValue.classList.contains('color-value')) {
+                        colorValue.textContent = this.strokeColor;
+                    }
                     if (this.selectedObject && this.selectedObject.type === 'text') {
                         this.updateTextProperties();
                     }
@@ -194,23 +217,47 @@ const ToolsManager = {
             
             const fillColorInput = document.getElementById('fill-color');
             if (fillColorInput) {
-                fillColorInput.addEventListener('change', (e) => {
+                // Синхронизируем стартовое значение JS с HTML
+                this.fillColor = fillColorInput.value;
+                
+                fillColorInput.addEventListener('input', (e) => {
                     this.fillColor = e.target.value;
+                    const colorValue = fillColorInput.nextElementSibling;
+                    if (colorValue && colorValue.classList.contains('color-value')) {
+                        colorValue.textContent = this.fillColor;
+                    }
                     if (this.selectedObject && this.selectedObject.type === 'text') {
                         this.updateTextProperties();
                     }
                 });
             }
             
+            const self = this;
             const strokeWidthInput = document.getElementById('stroke-width');
             if (strokeWidthInput) {
                 strokeWidthInput.addEventListener('input', (e) => {
-                    this.strokeWidth = parseInt(e.target.value);
+                    self.strokeWidth = parseInt(e.target.value);
                     const strokeValue = document.getElementById('stroke-width-value');
-                    if (strokeValue) strokeValue.textContent = this.strokeWidth + 'px';
-                    if (this.selectedObject && this.selectedObject.type === 'text') {
-                        this.updateTextProperties();
+                    if (strokeValue) strokeValue.textContent = self.strokeWidth + 'px';
+                    if (self.selectedObject && self.selectedObject.type === 'text') {
+                        self.updateTextProperties();
                     }
+                });
+            }
+            
+            const rotateLeftBtn = document.getElementById('rotate-counterclockwise');
+            if (rotateLeftBtn) {
+                rotateLeftBtn.addEventListener('click', () => {
+                    console.log('rotate-left clicked, selectedObject=', self.selectedObject);
+                    self.rotateSelectedObject('ccw');
+                });
+            }
+            
+            const rotateRightBtn = document.getElementById('rotate-clockwise');
+            if (rotateRightBtn) {
+                rotateRightBtn.addEventListener('click', () => {
+                    console.log('rotate-right clicked, selectedObject=', self.selectedObject);
+                    self.rotateSelectedObject('cw');
                 });
             }
             
@@ -327,27 +374,12 @@ const ToolsManager = {
                 });
             }
 
-            const brushSelect = document.getElementById('brushTypeSelect');
-            if (brushSelect) {
-                brushSelect.addEventListener('change', (e) => {
-                    this.brushType = e.target.value;
-                    console.log('Выбрана кисть:', this.brushType);
-                    
-                    // Обновляем активный класс в превью
-                    document.querySelectorAll('.brush-preview-item').forEach(item => {
-                        item.classList.toggle('active', item.dataset.brush === this.brushType);
-                    });
-                });
-            }
-
             // Добавляем клики по превью
             document.querySelectorAll('.brush-preview-item').forEach(item => {
                 item.addEventListener('click', () => {
                     const brush = item.dataset.brush;
                     if (brush) {
                         this.brushType = brush;
-                        const brushSelect = document.getElementById('brushTypeSelect');
-                        if (brushSelect) brushSelect.value = brush;
                         
                         document.querySelectorAll('.brush-preview-item').forEach(i => {
                             i.classList.toggle('active', i === item);
@@ -550,10 +582,14 @@ const ToolsManager = {
                 this.moveStartX = x;
                 this.moveStartY = y;
                 
-                const bounds = CanvasManager.getObjectBounds(objAtClick);
-                if (bounds) {
-                    this.moveObjectStartX = bounds.x;
-                    this.moveObjectStartY = bounds.y;
+                // Сохраняем реальные координаты объекта, а не bounding box
+                // (bounding box может быть смещён при повороте)
+                if (objAtClick.type === 'line') {
+                    this.moveObjectStartX = objAtClick.x1 || 0;
+                    this.moveObjectStartY = objAtClick.y1 || 0;
+                } else if (objAtClick.type === 'path' || objAtClick.type === 'pencil' || objAtClick.type === 'eraser' || objAtClick.type === 'polygon') {
+                    this.moveObjectStartX = objAtClick.points ? Math.min(...objAtClick.points.map(p => p.x)) : 0;
+                    this.moveObjectStartY = objAtClick.points ? Math.min(...objAtClick.points.map(p => p.y)) : 0;
                 } else {
                     this.moveObjectStartX = objAtClick.x || 0;
                     this.moveObjectStartY = objAtClick.y || 0;
@@ -561,12 +597,13 @@ const ToolsManager = {
                 
                 this.moveObjectSnapshot = JSON.parse(JSON.stringify(objAtClick));
                 
-                console.log('startDrawing: начало MOVE, координаты:', { moveStartX: x, moveStartY: y, boundsX: this.moveObjectStartX, boundsY: this.moveObjectStartY });
+                console.log('startDrawing: начало MOVE, координаты:', { moveStartX: x, moveStartY: y, objX: this.moveObjectStartX, objY: this.moveObjectStartY });
             } else {
                 console.log('startDrawing select: ВЫБИРАЕМ новый объект', !!objAtClick);
                 this.selectedObject = objAtClick;
 
                 this.updateTextPropertiesPanel();
+                this.updateRotateButtonsState();
 
                 this.isMoving = false;
                 this.isResizing = false;
@@ -673,15 +710,6 @@ const ToolsManager = {
             }
         });
     },
-
-    // Добавьте вызов этого метода в init
-    init() {
-        this.setupTools();
-        this.setupProperties();
-        this.setupTextInput();
-        this.setupCollapsibleSections();
-        this.drawBrushPreviews(); // ДОБАВИТЬ ЭТУ СТРОКУ
-    },
     
     drawTemporary(ctx, x, y) {
         if (!this.isDrawing && !this.isMoving && !this.isResizing && !this.isDrawingTextArea) return;
@@ -719,7 +747,7 @@ const ToolsManager = {
                         y: p.y + deltaY
                     }));
                 }
-            } else if (snapshot.type === 'line' || snapshot.type === 'arrow') {
+            } else if (snapshot.type === 'line') {
                 // Для линий - копируем координаты из snapshot и смещаем
                 this.selectedObject.x1 = (snapshot.x1 || 0) + deltaX;
                 this.selectedObject.y1 = (snapshot.y1 || 0) + deltaY;
@@ -743,6 +771,21 @@ const ToolsManager = {
         
         // Для select инструмента - изменение размера объекта
         if (this.currentTool === 'select' && this.isResizing && this.selectedObject && this.objectStartBounds) {
+            if (this.resizingHandle === 'rotate') {
+                const bounds = this.objectStartBounds;
+                // Находим абсолютный центр объекта
+                const centerX = bounds.minX + (bounds.maxX - bounds.minX) / 2;
+                const centerY = bounds.minY + (bounds.maxY - bounds.minY) / 2;
+                
+                // Вычисляем угол. Добавляем Math.PI / 2, так как тянем за верхнюю точку
+                let newAngle = Math.atan2(y - centerY, x - centerX) + (Math.PI / 2);
+                
+                this.selectedObject.angle = newAngle;
+                this.updateObjectInLayer(this.selectedObject);
+                CanvasManager.redraw();
+                return; // Прерываем функцию, чтобы не сработал код масштабирования ниже
+            }
+
             const deltaX = x - this.moveStartX;
             const deltaY = y - this.moveStartY;
             const bounds = this.objectStartBounds;
@@ -870,8 +913,12 @@ const ToolsManager = {
                     y: rectY,
                     width: rectW,
                     height: rectH,
-                    fontSize: Math.max(12, rectH * 0.7),
-                    fontFamily: 'Arial',
+                    fontSize: this.fontSize,
+                    fontFamily: this.fontFamily,
+                    fontWeight: this.fontWeight,
+                    fontStyle: this.fontStyle,
+                    textDecoration: this.textDecoration,
+                    textAlign: this.textAlign,
                     strokeColor: this.strokeColor,
                     fillColor: this.fillColor,
                     strokeWidth: this.strokeWidth
@@ -986,8 +1033,11 @@ const ToolsManager = {
         if (!obj) return false;
 
         if (obj.type === 'rect' || obj.type === 'circle' || obj.type === 'ellipse') {
-            return x >= obj.x && x <= obj.x + obj.width && 
-                   y >= obj.y && y <= obj.y + obj.height;
+            // Используем bounding box для корректной работы с повёрнутыми объектами
+            const bounds = CanvasManager.getObjectBounds(obj);
+            if (!bounds) return false;
+            return x >= bounds.minX && x <= bounds.maxX && 
+                   y >= bounds.minY && y <= bounds.maxY;
         }
 
         if (obj.type === 'line') {
@@ -1007,8 +1057,11 @@ const ToolsManager = {
         }
 
         if (obj.type === 'text') {
-            return x >= obj.x && x <= obj.x + obj.width && 
-                   y >= obj.y && y <= obj.y + obj.height;
+            // Используем bounding box для корректной работы с повёрнутыми объектами
+            const bounds = CanvasManager.getObjectBounds(obj);
+            if (!bounds) return false;
+            return x >= bounds.minX && x <= bounds.maxX && 
+                   y >= bounds.minY && y <= bounds.maxY;
         }
 
         if (obj.type === 'polygon' && obj.points) {
@@ -1016,8 +1069,11 @@ const ToolsManager = {
         }
 
         if (obj.type === 'arrow') {
-            return x >= obj.x && x <= obj.x + obj.width && 
-                   y >= obj.y && y <= obj.y + obj.height;
+            // Используем bounding box для корректной работы с повёрнутыми объектами
+            const bounds = CanvasManager.getObjectBounds(obj);
+            if (!bounds) return false;
+            return x >= bounds.minX && x <= bounds.maxX && 
+                   y >= bounds.minY && y <= bounds.maxY;
         }
 
         return false;
@@ -1069,66 +1125,114 @@ const ToolsManager = {
     
     performFill(x, y) {
         if (!CanvasManager.activeLayer) return;
-        
-        // Шаг 1: Создаем справочный canvas со ВСЕМИ слоями (БЕЗ фона и сетки!)
-        const referenceCanvas = document.createElement('canvas');
-        referenceCanvas.width = CanvasManager.canvas.width;
-        referenceCanvas.height = CanvasManager.canvas.height;
-        // при чтении большого объёма пикселей включаем willReadFrequently
-        const referenceCtx = referenceCanvas.getContext('2d', { willReadFrequently: true });
-        referenceCtx.scale(CanvasManager.pixelRatio, CanvasManager.pixelRatio);
-        
-        // Важно: НЕ рисуем белый фон, оставляем canvas прозрачным!
-        // Рисуем ВСЕ видимые слои (как они есть, со своими пиксельными данными)
-        CanvasManager.layers.forEach((layer, index) => {
-            if (index === 0 || layer.visible) {
-                referenceCtx.globalAlpha = layer.opacity;
-                // Копируем ТОЛЬКО пиксельные данные слоя, без изменений
-                referenceCtx.drawImage(layer.canvas, 0, 0, CanvasManager.width, CanvasManager.height);
-            }
-        });
-        referenceCtx.globalAlpha = 1;
-        
-        // Логические координаты
+    
         const logicalX = Math.round(x);
         const logicalY = Math.round(y);
-        
-        // Получаем цвет пикселя в справочном canvas
-        const pixelData = referenceCtx.getImageData(logicalX, logicalY, 1, 1).data;
-        const startColor = {
-            r: pixelData[0],
-            g: pixelData[1],
-            b: pixelData[2],
-            a: pixelData[3]
-        };
-        
+        const pixelRatio = CanvasManager.pixelRatio || 1;
+    
+        if (logicalX < 0 || logicalX >= CanvasManager.width ||
+            logicalY < 0 || logicalY >= CanvasManager.height) {
+            console.warn('Клик за пределами холста');
+            return;
+        }
+    
+        // Физические размеры canvas (учитываем devicePixelRatio)
+        const physicalW = CanvasManager.canvas.width;
+        const physicalH = CanvasManager.canvas.height;
+        const physX = Math.round(logicalX * pixelRatio);
+        const physY = Math.round(logicalY * pixelRatio);
+    
+        // ── 1. Строим КОМПОЗИТНЫЙ canvas: фон + все видимые слои ─────────────────
+        // Заливка должна видеть то же, что видит пользователь (включая фон).
+        const compositeCanvas = document.createElement('canvas');
+        compositeCanvas.width  = physicalW;
+        compositeCanvas.height = physicalH;
+        const compositeCtx = compositeCanvas.getContext('2d');
+    
+        compositeCtx.fillStyle = CanvasManager.backgroundColor || '#ffffff';
+        compositeCtx.fillRect(0, 0, physicalW, physicalH);
+    
+        CanvasManager.layers.forEach(layer => {
+            if (layer.visible) {
+                compositeCtx.globalAlpha = layer.opacity ?? 1;
+                compositeCtx.drawImage(layer.canvas, 0, 0);
+            }
+        });
+        compositeCtx.globalAlpha = 1;
+    
+        // ── 2. Читаем начальный цвет в ФИЗИЧЕСКИХ координатах ───────────────────
+        const pixelData = compositeCtx.getImageData(physX, physY, 1, 1).data;
+        const startColor = { r: pixelData[0], g: pixelData[1], b: pixelData[2], a: pixelData[3] };
+    
         const fillRGB = this.hexToRgb(this.fillColor);
-        
-        // Если цвет совпадает, ничего не делаем
-        if (startColor.r === fillRGB.r && startColor.g === fillRGB.g && 
-            startColor.b === fillRGB.b) return;
-        
-        // Шаг 2: Выполняем flood fill на справочном canvas, получаем маску
-        // убедимся, что передаём целые положительные размеры
-        const w = Math.max(0, Math.floor(CanvasManager.width));
-        const h = Math.max(0, Math.floor(CanvasManager.height));
-        const fillMask = this.floodFillGetMask(referenceCtx, logicalX, logicalY, startColor, w, h);
-        
-        // Шаг 3: Применяем маску к активному слою
-        const layerImageData = CanvasManager.activeLayer.ctx.getImageData(0, 0, CanvasManager.width, CanvasManager.height);
+    
+        if (Math.abs(startColor.r - fillRGB.r) < 5 &&
+            Math.abs(startColor.g - fillRGB.g) < 5 &&
+            Math.abs(startColor.b - fillRGB.b) < 5) {
+            console.log('Цвет уже совпадает');
+            return;
+        }
+    
+        // ── 3. Flood-fill по ФИЗИЧЕСКИМ пикселям композита ──────────────────────
+        const imageData = compositeCtx.getImageData(0, 0, physicalW, physicalH);
+        const data = imageData.data;
+        const tolerance = 32;
+    
+        const isSameColor = (idx) => {
+            if (idx < 0 || idx + 3 >= data.length) return false;
+            return (
+                Math.abs(data[idx]     - startColor.r) <= tolerance &&
+                Math.abs(data[idx + 1] - startColor.g) <= tolerance &&
+                Math.abs(data[idx + 2] - startColor.b) <= tolerance &&
+                Math.abs(data[idx + 3] - startColor.a) <= tolerance
+            );
+        };
+    
+        // Typed arrays вместо Set — намного быстрее на больших холстах
+        const mask    = new Uint8Array(physicalW * physicalH);
+        const visited = new Uint8Array(physicalW * physicalH);
+        const queue   = [physY * physicalW + physX]; // плоские индексы вместо {x,y}
+        let pixelsChanged = 0;
+    
+        while (queue.length > 0) {
+            const flatIdx = queue.pop();
+    
+            if (visited[flatIdx]) continue;
+            visited[flatIdx] = 1;
+    
+            if (!isSameColor(flatIdx * 4)) continue;
+    
+            mask[flatIdx] = 1;
+            pixelsChanged++;
+    
+            const cy = (flatIdx / physicalW) | 0;
+            const cx = flatIdx % physicalW;
+    
+            if (cx + 1 < physicalW) queue.push(flatIdx + 1);
+            if (cx - 1 >= 0)        queue.push(flatIdx - 1);
+            if (cy + 1 < physicalH) queue.push(flatIdx + physicalW);
+            if (cy - 1 >= 0)        queue.push(flatIdx - physicalW);
+        }
+    
+        console.log(`Flood fill: залито ${pixelsChanged} пикселей`);
+    
+        // ── 4. Применяем маску к АКТИВНОМУ слою ─────────────────────────────────
+        const layerCtx = CanvasManager.activeLayer.ctx;
+        const layerImageData = layerCtx.getImageData(0, 0, physicalW, physicalH);
         const layerData = layerImageData.data;
-        
-        for (let i = 0; i < fillMask.length; i++) {
-            if (fillMask[i]) {  // Если пиксель помечен для заливки
-                layerData[i * 4] = fillRGB.r;
-                layerData[i * 4 + 1] = fillRGB.g;
-                layerData[i * 4 + 2] = fillRGB.b;
-                layerData[i * 4 + 3] = 255;
+    
+        for (let i = 0; i < mask.length; i++) {
+            if (mask[i]) {
+                const idx = i * 4;
+                layerData[idx]     = fillRGB.r;
+                layerData[idx + 1] = fillRGB.g;
+                layerData[idx + 2] = fillRGB.b;
+                layerData[idx + 3] = 255;
             }
         }
-        
-        CanvasManager.activeLayer.ctx.putImageData(layerImageData, 0, 0);
-        
+    
+        layerCtx.putImageData(layerImageData, 0, 0);
+        CanvasManager.compositeDirty = true;
         CanvasManager.redraw();
         HistoryManager?.saveState();
     },
@@ -1146,6 +1250,7 @@ const ToolsManager = {
             this.selectedObject = this.selectedObjects[0];
             // Обновляем панель свойств при выделении
             this.updateTextPropertiesPanel();
+            this.updateRotateButtonsState();
         }
 
         this.allObjectsSelected = this.selectedObjects.length > 0;
@@ -1155,18 +1260,39 @@ const ToolsManager = {
 
     // Обновить позицию объекта в слое
     updateObjectInLayer(obj) {
-    for (let i = 0; i < CanvasManager.layers.length; i++) {
-        const layer = CanvasManager.layers[i];
-        const index = layer.objects.indexOf(obj);
-        if (index !== -1) {
-            layer.ctx.clearRect(0, 0, CanvasManager.width, CanvasManager.height);
-            layer.objects.forEach(o => CanvasManager.drawSingleObject(layer.ctx, o));
-            LayersManager.invalidateLayerThumbnail(i);
-            CanvasManager.compositeDirty = true; // ← ВОТ ЭТО ОТСУТСТВУЕТ
-            break;
+        for (let i = 0; i < CanvasManager.layers.length; i++) {
+            const layer = CanvasManager.layers[i];
+            const index = layer.objects.indexOf(obj);
+            if (index !== -1) {
+                layer.ctx.clearRect(0, 0, CanvasManager.width, CanvasManager.height);
+                layer.objects.forEach(o => CanvasManager.drawSingleObject(layer.ctx, o));
+                LayersManager.invalidateLayerThumbnail(i);
+                CanvasManager.compositeDirty = true;
+                break;
+            }
         }
-    }
-},
+    },
+
+    rotateSelectedObject(direction) {
+        if (!this.selectedObject) return;
+
+        const obj = this.selectedObject;
+        obj.angle = (obj.angle || 0) + (direction === 'cw' ? Math.PI / 2 : -Math.PI / 2);
+        obj.angle = ((obj.angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+
+        this.updateObjectInLayer(obj);
+        CanvasManager.redraw();
+        HistoryManager?.saveState();
+    },
+
+    updateRotateButtonsState() {
+        const rotateLeftBtn = document.getElementById('rotate-counterclockwise');
+        const rotateRightBtn = document.getElementById('rotate-clockwise');
+        const canRotate = this.currentTool === 'select' && !!this.selectedObject;
+
+        if (rotateLeftBtn) rotateLeftBtn.disabled = !canRotate;
+        if (rotateRightBtn) rotateRightBtn.disabled = !canRotate;
+    },
     
     hexToRgb(hex) {
         const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -1399,7 +1525,13 @@ const ToolsManager = {
 
                 const tempCanvas = document.createElement('canvas');
                 const tempCtx = tempCanvas.getContext('2d');
-                tempCtx.font = `${obj.fontSize}px ${obj.fontFamily}`;
+
+                let fontStr = '';
+                if (obj.fontStyle === 'italic') fontStr += 'italic ';
+                if (obj.fontWeight === 'bold') fontStr += 'bold ';
+                fontStr += `${obj.fontSize}px ${obj.fontFamily}`;
+                tempCtx.font = fontStr;
+
                 const metrics = tempCtx.measureText(obj.text);
                 obj.width = metrics.width;
                 obj.height = obj.fontSize * 1.2;
@@ -1465,6 +1597,7 @@ const ToolsManager = {
                     
                 this.selectedObject = obj;
                 this.updateTextPropertiesPanel();
+                this.updateRotateButtonsState();
             }
         }
         this.cancelTextInput();
@@ -1544,6 +1677,7 @@ const ToolsManager = {
             
             // Координаты всех 8 handle'ов
             const handles = {
+                'rotate': { x: (bounds.minX + bounds.maxX) / 2, y: bounds.minY - 25 },
                 'nw': { x: bounds.minX, y: bounds.minY },
                 'n': { x: (bounds.minX + bounds.maxX) / 2, y: bounds.minY },
                 'ne': { x: bounds.maxX, y: bounds.minY },
@@ -1579,12 +1713,14 @@ const ToolsManager = {
             const scaleY = oldHeight !== 0 ? newHeight / oldHeight : 1;
             
             // Применяем трансформацию в зависимости от типа объекта
-            if (obj.type === 'rect' || obj.type === 'ellipse' || obj.type === 'circle') {
+            if (obj.type === 'rect' || obj.type === 'ellipse' || obj.type === 'circle' || obj.type === 'arrow') {
                 obj.x = newBounds.minX;
                 obj.y = newBounds.minY;
                 obj.width = newWidth;
                 obj.height = newHeight;
-            } else if (obj.type === 'line' || obj.type === 'arrow') {
+                // Сохраняем угол поворота!
+                // obj.angle остаётся неизменным
+            } else if (obj.type === 'line') {
                 obj.x1 = newBounds.minX + (obj.x1 - oldBounds.minX) * scaleX;
                 obj.y1 = newBounds.minY + (obj.y1 - oldBounds.minY) * scaleY;
                 obj.x2 = newBounds.minX + (obj.x2 - oldBounds.minX) * scaleX;
