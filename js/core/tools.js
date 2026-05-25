@@ -6,6 +6,13 @@ const ToolsManager = {
     textAreaHeight: 0,
     textAreaObject: null,
     currentTool: 'select',
+    selectionMode: 'normal',
+    isSelectingArea: false,
+    selectionStartX: 0,
+    selectionStartY: 0,
+    selectionAreaPoints: [],
+    selectionBounds: null,
+    selectionModeMenuOpen: false,
     strokeColor: '#000000',
     fillColor: '#4a90e2',
     strokeWidth: 2,
@@ -44,10 +51,17 @@ const ToolsManager = {
         this.setupTextInput();
         this.setupCollapsibleSections();
         this.drawBrushPreviews();
+        this.updateSelectionInfo();
+
+        const selectionMenu = document.getElementById('selectionModeMenu');
+        if (this.currentTool === 'select') {
+            if (selectionMenu) selectionMenu.classList.remove('hidden');
+        } else {
+            if (selectionMenu) selectionMenu.classList.add('hidden');
+        }
     },
     
     setupTools() {
-        // Обработка основных инструментов
         document.querySelectorAll('.tool-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 this.activateTool(btn);
@@ -60,9 +74,24 @@ const ToolsManager = {
                 this.activateTool(btn);
             });
         });
+        
+        this.selectionModeMenu = document.getElementById('selectionModeMenu');
+        this.selectionModeButtons = document.querySelectorAll('.selection-mode-btn');
+        this.selectionToolButton = document.querySelector('.tool-btn[data-tool="select"]');
+
+        if (this.selectionModeButtons) {
+            this.selectionModeButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const mode = btn.dataset.selectionMode;
+                    this.setSelectionMode(mode);
+                });
+            });
+        }
     },
     
         activateTool(btn) {
+            const previousTool = this.currentTool;
             document.querySelectorAll('.tool-btn, .shape-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             this.currentTool = btn.dataset.tool;
@@ -101,12 +130,27 @@ const ToolsManager = {
                 CanvasManager.redraw();
             }
             
-            // Снимаем выделение при смене инструмента
             if (this.currentTool === 'select') {
+                if (previousTool === 'select') {
+                    this.toggleSelectionMenu();
+                } else {
+                    this.showSelectionMenu();
+                }
                 this.updateTextPropertiesPanel();
+            } else {
+                this.hideSelectionMenu();
             }
             
             this.updateRotateButtonsState();
+
+            const selectionMenu = document.getElementById('selectionModeMenu');
+            if (this.currentTool === 'select') {
+                if (selectionMenu) selectionMenu.classList.remove('hidden');
+                // если нужно, синхронизируем активный режим
+                this.updateSelectionInfo();
+            } else {
+                if (selectionMenu) selectionMenu.classList.add('hidden');
+            }
         },
         
         updateTextPropertiesPanel() {
@@ -560,6 +604,22 @@ const ToolsManager = {
     
     startDrawing(x, y, clientX, clientY) {
         if (this.currentTool === 'select') {
+            if (this.selectionMode !== 'normal' && !this.isResizing) {
+                this.isSelectingArea = true;
+                this.isDrawing = true;
+                this.selectionStartX = x;
+                this.selectionStartY = y;
+                this.selectionBounds = { x, y, width: 0, height: 0 };
+                this.selectionAreaPoints = [{ x, y }];
+                this.selectedObject = null;
+                this.selectedObjects = [];
+                this.updateSelectionInfo();
+                if (CanvasManager.previewCtx) {
+                    CanvasManager.previewCtx.clearRect(0, 0, CanvasManager.width, CanvasManager.height);
+                }
+                return true;
+            }
+
             if (this.selectedObject) {
                 const handle = this.getHandleAtPoint(x, y, this.selectedObject);
                 if (handle) {
@@ -601,9 +661,11 @@ const ToolsManager = {
             } else {
                 console.log('startDrawing select: ВЫБИРАЕМ новый объект', !!objAtClick);
                 this.selectedObject = objAtClick;
+                this.selectedObjects = objAtClick ? [objAtClick] : [];
 
                 this.updateTextPropertiesPanel();
                 this.updateRotateButtonsState();
+                this.updateSelectionInfo();
 
                 this.isMoving = false;
                 this.isResizing = false;
@@ -718,6 +780,12 @@ const ToolsManager = {
             this.drawTextAreaPreview(ctx, x, y);
             return;
         }
+
+        if (this.currentTool === 'select' && this.isSelectingArea) {
+            this.drawSelectionAreaPreview(ctx, x, y);
+            return;
+        }
+
         // Для select инструмента - перемещение объекта
         if (this.currentTool === 'select' && this.isMoving && this.selectedObject) {
             if (!this.moveObjectSnapshot) return;
@@ -931,6 +999,46 @@ const ToolsManager = {
             this.isDrawing = false;
             return null;
         }
+
+        if (this.currentTool === 'select' && this.isSelectingArea) {
+            this.isSelectingArea = false;
+            this.isDrawing = false;
+            let createdObj = null;
+
+            if (this.selectionMode === 'rect') {
+                const x0 = Math.min(this.selectionStartX, x);
+                const y0 = Math.min(this.selectionStartY, y);
+                const x1 = Math.max(this.selectionStartX, x);
+                const y1 = Math.max(this.selectionStartY, y);
+                this.selectionBounds = { minX: x0, minY: y0, maxX: x1, maxY: y1 };
+                this.selectObjectsInRect(this.selectionBounds);
+                createdObj = this.createAreaShapeFromRect(this.selectionBounds);
+            }
+
+            if (this.selectionMode === 'lasso') {
+                if (this.selectionAreaPoints.length > 2) {
+                    this.selectionAreaPoints.push({ x: this.selectionStartX, y: this.selectionStartY });
+                    this.selectObjectsInLasso(this.selectionAreaPoints);
+                    createdObj = this.createAreaShapeFromLasso(this.selectionAreaPoints);
+                } else {
+                    this.selectedObjects = [];
+                    this.selectedObject = null;
+                }
+            }
+
+            if (createdObj) {
+                CanvasManager.addObject(createdObj);
+                this.selectedObjects = [createdObj];
+                this.selectedObject = createdObj;
+            }
+
+            this.selectionAreaPoints = [];
+            this.selectionBounds = null;
+            this.updateTextPropertiesPanel();
+            this.updateRotateButtonsState();
+            this.updateSelectionInfo();
+            return null;
+        }
         
         if (!this.isDrawing) {
             console.log('Рисование не активно, выходим');
@@ -1066,6 +1174,13 @@ const ToolsManager = {
 
         if (obj.type === 'polygon' && obj.points) {
             return this.isPointInPolygon(x, y, obj.points);
+        }
+
+        if (obj.type === 'imageData') {
+            const bounds = CanvasManager.getObjectBounds(obj);
+            if (!bounds) return false;
+            return x >= bounds.minX && x <= bounds.maxX &&
+                   y >= bounds.minY && y <= bounds.maxY;
         }
 
         if (obj.type === 'arrow') {
@@ -1254,19 +1369,21 @@ const ToolsManager = {
         }
 
         this.allObjectsSelected = this.selectedObjects.length > 0;
+        this.updateSelectionInfo();
         CanvasManager.redraw();
         return this.selectedObjects;
     },
 
     // Обновить позицию объекта в слое
-    updateObjectInLayer(obj) {
+     updateObjectInLayer(obj) {
         for (let i = 0; i < CanvasManager.layers.length; i++) {
             const layer = CanvasManager.layers[i];
             const index = layer.objects.indexOf(obj);
             if (index !== -1) {
                 layer.ctx.clearRect(0, 0, CanvasManager.width, CanvasManager.height);
                 layer.objects.forEach(o => CanvasManager.drawSingleObject(layer.ctx, o));
-                LayersManager.invalidateLayerThumbnail(i);
+
+                if (typeof LayersManager !== 'undefined') LayersManager.invalidateLayerThumbnail(i);
                 CanvasManager.compositeDirty = true;
                 break;
             }
@@ -1293,7 +1410,297 @@ const ToolsManager = {
         if (rotateLeftBtn) rotateLeftBtn.disabled = !canRotate;
         if (rotateRightBtn) rotateRightBtn.disabled = !canRotate;
     },
-    
+
+    showSelectionMenu() {
+        if (!this.selectionModeMenu) return;
+        this.selectionModeMenu.classList.remove('hidden');
+        this.selectionModeMenuOpen = true;
+    },
+
+    hideSelectionMenu() {
+        if (!this.selectionModeMenu) return;
+        this.selectionModeMenu.classList.add('hidden');
+        this.selectionModeMenuOpen = false;
+    },
+
+    toggleSelectionMenu() {
+        if (this.selectionModeMenuOpen) {
+            this.hideSelectionMenu();
+        } else {
+            this.showSelectionMenu();
+        }
+    },
+
+    setSelectionMode(mode) {
+        this.selectionMode = mode || 'normal';
+        if (this.selectionModeButtons) {
+            this.selectionModeButtons.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.selectionMode === this.selectionMode);
+            });
+        }
+        this.updateSelectionInfo();
+    },
+
+    updateSelectionInfo() {
+        const info = document.getElementById('selection-info');
+        if (!info) return;
+        const modeLabel = this.selectionMode === 'rect'
+            ? 'Прямоугольная область'
+            : this.selectionMode === 'lasso'
+                ? 'Произвольная область'
+                : 'Выделение';
+        const count = this.selectedObjects?.length || 0;
+        const selectionText = count > 0 ? `${count} объект${count === 1 ? '' : 'ов'}` : 'Нет выделения';
+        info.textContent = this.currentTool === 'select' ? `${modeLabel}${count > 0 ? ' • ' + selectionText : ''}` : selectionText;
+    },
+
+    createAreaShapeFromRect(bounds) {
+        if (!bounds || bounds.maxX - bounds.minX < 4 || bounds.maxY - bounds.minY < 4) return null;
+        const selectionBounds = {
+            x: bounds.minX,
+            y: bounds.minY,
+            width: bounds.maxX - bounds.minX,
+            height: bounds.maxY - bounds.minY
+        };
+        const imageData = this.captureSelectionImage(selectionBounds);
+        if (!imageData) return null;
+        this.clearSelectionArea(selectionBounds);
+        return {
+            type: 'imageData',
+            x: selectionBounds.x,
+            y: selectionBounds.y,
+            width: selectionBounds.width,
+            height: selectionBounds.height,
+            imageData,
+            tool: 'imageData'
+        };
+    },
+
+    createAreaShapeFromLasso(points) {
+        if (!points || points.length < 3) return null;
+        const minX = Math.min(...points.map(p => p.x));
+        const minY = Math.min(...points.map(p => p.y));
+        const maxX = Math.max(...points.map(p => p.x));
+        const maxY = Math.max(...points.map(p => p.y));
+        const selectionBounds = {
+            x: minX,
+            y: minY,
+            width: maxX - minX,
+            height: maxY - minY
+        };
+        const imageData = this.captureSelectionImage(selectionBounds, points);
+        if (!imageData) return null;
+        this.clearSelectionArea(selectionBounds, points);
+        return {
+            type: 'imageData',
+            x: selectionBounds.x,
+            y: selectionBounds.y,
+            width: selectionBounds.width,
+            height: selectionBounds.height,
+            imageData,
+            tool: 'imageData'
+        };
+    },
+
+    captureSelectionImage(bounds, points = null) {
+        if (!bounds || bounds.width < 1 || bounds.height < 1) return null;
+        if (!CanvasManager.compositeCanvas) return null;
+        if (CanvasManager.compositeDirty) {
+            CanvasManager.redraw();
+        }
+
+        const ratio = CanvasManager.pixelRatio || 1;
+        const srcCanvas = CanvasManager.compositeCanvas;
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = Math.max(1, Math.round(bounds.width * ratio));
+        tempCanvas.height = Math.max(1, Math.round(bounds.height * ratio));
+        const tempCtx = tempCanvas.getContext('2d');
+
+        if (points && points.length >= 3) {
+            tempCtx.save();
+            tempCtx.beginPath();
+            tempCtx.moveTo((points[0].x - bounds.x) * ratio, (points[0].y - bounds.y) * ratio);
+            points.forEach(point => {
+                tempCtx.lineTo((point.x - bounds.x) * ratio, (point.y - bounds.y) * ratio);
+            });
+            tempCtx.closePath();
+            tempCtx.clip();
+            tempCtx.drawImage(
+                srcCanvas,
+                bounds.x * ratio,
+                bounds.y * ratio,
+                bounds.width * ratio,
+                bounds.height * ratio,
+                0,
+                0,
+                bounds.width * ratio,
+                bounds.height * ratio
+            );
+            tempCtx.restore();
+        } else {
+            tempCtx.drawImage(
+                srcCanvas,
+                bounds.x * ratio,
+                bounds.y * ratio,
+                bounds.width * ratio,
+                bounds.height * ratio,
+                0,
+                0,
+                bounds.width * ratio,
+                bounds.height * ratio
+            );
+        }
+
+        return tempCanvas.toDataURL('image/png');
+    },
+
+    clearSelectionArea(bounds, points = null) {
+        if (!bounds || bounds.width < 1 || bounds.height < 1) return;
+
+        // Находим объекты, попавшие под выделение
+        const affectedObjects = this.getAllCanvasObjects().filter(obj => {
+            const objBounds = CanvasManager.getObjectBounds(obj);
+            return objBounds && this.intersectsRect(objBounds, bounds);
+        });
+
+        // Записываем вырезанную область внутрь самого объекта (относительно его начала)
+        affectedObjects.forEach(obj => {
+            if (!obj.cutouts) obj.cutouts = [];
+            
+            let originX = 0, originY = 0;
+            if (['rect', 'circle', 'ellipse', 'text', 'imageData', 'arrow'].includes(obj.type)) {
+                originX = obj.x; originY = obj.y;
+            } else if (obj.type === 'line') {
+                originX = obj.x1; originY = obj.y1;
+            } else if (['path', 'pencil', 'eraser', 'polygon'].includes(obj.type)) {
+                if (obj.points && obj.points.length > 0) {
+                    originX = obj.points[0].x; originY = obj.points[0].y;
+                }
+            }
+            
+            obj.cutouts.push({
+                bounds: {
+                    x: bounds.x - originX,
+                    y: bounds.y - originY,
+                    width: bounds.width,
+                    height: bounds.height
+                },
+                points: points ? points.map(p => ({
+                    x: p.x - originX,
+                    y: p.y - originY
+                })) : null
+            });
+        });
+
+        // Перерисовываем слои без глобальных масок
+        CanvasManager.layers.forEach((layer, index) => {
+            layer._clearedRegions = []; // Сбрасываем старую логику слоя
+            layer.ctx.clearRect(0, 0, CanvasManager.width, CanvasManager.height);
+            layer.objects.forEach(o => CanvasManager.drawSingleObject(layer.ctx, o));
+            if (typeof LayersManager !== 'undefined') LayersManager.invalidateLayerThumbnail(index);
+        });
+
+        CanvasManager.compositeDirty = true;
+        CanvasManager.redraw();       
+    },
+
+    selectObjectsInRect(bounds) {
+        const objects = this.getAllCanvasObjects();
+        this.selectedObjects = objects.filter(obj => {
+            const objBounds = CanvasManager.getObjectBounds(obj);
+            return objBounds && this.intersectsRect(objBounds, bounds);
+        });
+        this.selectedObject = this.selectedObjects[0] || null;
+    },
+
+    selectObjectsInLasso(points) {
+        const objects = this.getAllCanvasObjects();
+        this.selectedObjects = objects.filter(obj => {
+            const objBounds = CanvasManager.getObjectBounds(obj);
+            if (!objBounds) return false;
+            const centerX = objBounds.x + objBounds.width / 2;
+            const centerY = objBounds.y + objBounds.height / 2;
+            return this.isPointInPolygon({ x: centerX, y: centerY }, points);
+        });
+        this.selectedObject = this.selectedObjects[0] || null;
+    },
+
+    getAllCanvasObjects() {
+        const objects = [];
+        if (CanvasManager.layers && Array.isArray(CanvasManager.layers)) {
+            CanvasManager.layers.forEach(layer => {
+                if (layer && Array.isArray(layer.objects) && layer.visible) {
+                    objects.push(...layer.objects);
+                }
+            });
+        }
+        return objects;
+    },
+
+    intersectsRect(bounds, rect) {
+        return !(bounds.x > rect.maxX || bounds.x + bounds.width < rect.minX || bounds.y > rect.maxY || bounds.y + bounds.height < rect.minY);
+    },
+
+    isPointInPolygon(point, polygon) {
+        let inside = false;
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+            const xi = polygon[i].x, yi = polygon[i].y;
+            const xj = polygon[j].x, yj = polygon[j].y;
+            const intersect = ((yi > point.y) !== (yj > point.y)) &&
+                (point.x < (xj - xi) * (point.y - yi) / (yj - yi + 0.000001) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    },
+
+    drawSelectionAreaPreview(ctx, x, y) {
+        if (!ctx) return;
+
+        if (this.selectionMode === 'rect') {
+            const startX = this.selectionStartX;
+            const startY = this.selectionStartY;
+            const width = x - startX;
+            const height = y - startY;
+            ctx.save();
+            ctx.strokeStyle = '#4a90e2';
+            ctx.fillStyle = 'rgba(74, 144, 226, 0.12)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 4]);
+            ctx.strokeRect(startX, startY, width, height);
+            ctx.fillRect(startX, startY, width, height);
+            ctx.restore();
+            this.selectionBounds = {
+                minX: Math.min(startX, x),
+                minY: Math.min(startY, y),
+                maxX: Math.max(startX, x),
+                maxY: Math.max(startY, y)
+            };
+        }
+
+        if (this.selectionMode === 'lasso') {
+            const lastPoint = this.selectionAreaPoints[this.selectionAreaPoints.length - 1];
+            if (Math.hypot(x - lastPoint.x, y - lastPoint.y) > 4) {
+                this.selectionAreaPoints.push({ x, y });
+            }
+            if (this.selectionAreaPoints.length < 2) return;
+            ctx.save();
+            ctx.strokeStyle = '#4a90e2';
+            ctx.fillStyle = 'rgba(74, 144, 226, 0.14)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 4]);
+            ctx.beginPath();
+            ctx.moveTo(this.selectionAreaPoints[0].x, this.selectionAreaPoints[0].y);
+            this.selectionAreaPoints.forEach((point, index) => {
+                if (index > 0) ctx.lineTo(point.x, point.y);
+            });
+            ctx.lineTo(x, y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+        }
+    },
+
     hexToRgb(hex) {
         const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
         return result ? {
@@ -1732,6 +2139,11 @@ const ToolsManager = {
                         y: newBounds.minY + (p.y - oldBounds.minY) * scaleY
                     }));
                 }
+            } else if (obj.type === 'imageData') {
+                obj.x = newBounds.minX;
+                obj.y = newBounds.minY;
+                obj.width = newBounds.maxX - newBounds.minX;
+                obj.height = newBounds.maxY - newBounds.minY;
             } else if (obj.type === 'path') {
                 if (obj.points && obj.points.length > 0) {
                     obj.points = obj.points.map(p => ({

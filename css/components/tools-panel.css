@@ -46,6 +46,51 @@
     gap: 8px;
 }
 
+.canvas-selection-menu {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 1000;   /* выше любой панели */
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    padding: 8px;
+    display: flex;
+    gap: 8px;
+    box-shadow: var(--shadow);
+}
+
+.selection-mode-menu {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.selection-mode-btn {
+    background: var(--bg-tertiary);
+    border: none;
+    color: var(--text-primary);
+    border-radius: 6px;
+    width: 36px;
+    height: 36px;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.selection-mode-btn i {
+    font-size: 18px;
+}
+
+.selection-mode-btn:hover,
+.selection-mode-btn.active {
+    background: var(--accent);
+    color: white;
+    border-color: transparent;
+}
+
 .tool-btn {
     background: var(--bg-tertiary);
     border: none;
@@ -80,7 +125,52 @@
 
 .tool-btn.active[data-tool="fill"],
 .tool-btn.active[data-tool="fill"] i {
-    color: #000;
+    color: white;
+    text-shadow: 0 0 2px rgba(0,0,0,0.5);
+}
+
+.tool-btn.active i {
+    transform: rotate(5deg);
+    transition: transform 0.2s ease;
+}
+
+.tool-btn[data-tool="fill"].active i {
+    transform: rotate(20deg);
+}
+.tool-btn[data-tool="pencil"].active i {
+    transform: rotate(10deg);
+}
+
+.shape-btn[data-tool="triangle"] i {
+    transform: rotate(-90deg);
+    display: inline-block;
+}
+
+.shape-btn[data-tool="triangle"]:active i {
+    transform: scale(1.05) !important;
+    transition: transform 0.1s cubic-bezier(0.2, 0.9, 0.4, 1.2);
+}
+
+/* Анимация возврата */
+.shape-btn[data-tool="triangle"] i {
+    transition: transform 0.12s ease;
+}
+
+.tool-btn:active i,
+.tool-btn:active img,
+.shape-btn:active i,
+.shape-btn:active img {
+    transform: rotate(15deg) scale(1.05);
+    transition: transform 0.1s cubic-bezier(0.2, 0.9, 0.4, 1.2);
+}
+
+/* Плавный возврат */
+.tool-btn i,
+.tool-btn img,
+.shape-btn i,
+.shape-btn img {
+    transition: transform 0.12s ease;
+    display: inline-block;
 }
 
 .panel-footer {
@@ -440,11 +530,11 @@
     width: 24px;
     height: 24px;
     object-fit: contain;
-    filter: brightness(0) invert(1);
+    filter: brightness(0) invert(1);   /* по умолчанию иконка белая */
 }
 
 .shape-btn.active img {
-    filter: brightness(0);
+    filter: brightness(0) invert(1);   /* оставляем белой и для активной кнопки */
 }
 
 /* Для текстовых символов в кнопках */

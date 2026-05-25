@@ -243,7 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
         if (ToolsManager.currentTool === 'select') {
             updateCursorForSelect(pos.x, pos.y);
-            if (!ToolsManager.isMoving && !ToolsManager.isResizing) return;
+            if (!ToolsManager.isMoving && !ToolsManager.isResizing && !ToolsManager.isSelectingArea) return;
         } else {
             if (!ToolsManager.isDrawing && !ToolsManager.isMoving && !ToolsManager.isResizing) return;
         }

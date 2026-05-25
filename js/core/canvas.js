@@ -740,6 +740,11 @@ const CanvasManager = {
             minY = obj.y;
             maxX = obj.x + (obj.width || 50);
             maxY = obj.y + (obj.height || 50);
+        } else if (obj.type === 'imageData') {
+            minX = obj.x;
+            minY = obj.y;
+            maxX = obj.x + obj.width;
+            maxY = obj.y + obj.height;
         }
         
         return {
@@ -817,13 +822,69 @@ const CanvasManager = {
     },
 
     drawSingleObject(ctx, obj) {
+        let targetCtx = ctx;
+        let tempCanvas = null;
+
+        // Если у объекта есть локальные вырезы, рисуем его на изолированном холсте
+        if (obj.cutouts && obj.cutouts.length > 0) {
+            tempCanvas = document.createElement('canvas');
+            tempCanvas.width = this.canvas.width;
+            tempCanvas.height = this.canvas.height;
+            targetCtx = tempCanvas.getContext('2d');
+            targetCtx.scale(this.pixelRatio, this.pixelRatio);
+        }
+
+        // Вызываем ядро отрисовки объекта
+        this._drawCore(targetCtx, obj);
+
+        // Применяем вырезы и перекидываем готовый объект на основной слой
+        if (tempCanvas) {
+            targetCtx.globalCompositeOperation = 'destination-out';
+            targetCtx.fillStyle = '#000'; // Важна только альфа
+            
+            let originX = 0, originY = 0;
+            if (['rect', 'circle', 'ellipse', 'text', 'imageData', 'arrow'].includes(obj.type)) {
+                originX = obj.x; originY = obj.y;
+            } else if (obj.type === 'line') {
+                originX = obj.x1; originY = obj.y1;
+            } else if (['path', 'pencil', 'eraser', 'polygon'].includes(obj.type)) {
+                if (obj.points && obj.points.length > 0) {
+                    originX = obj.points[0].x; originY = obj.points[0].y;
+                }
+            }
+
+            obj.cutouts.forEach(cutout => {
+                const absX = originX + cutout.bounds.x;
+                const absY = originY + cutout.bounds.y;
+                
+                targetCtx.save();
+                if (cutout.points && cutout.points.length >= 3) {
+                    targetCtx.beginPath();
+                    targetCtx.moveTo(originX + cutout.points[0].x, originY + cutout.points[0].y);
+                    cutout.points.forEach(p => {
+                        targetCtx.lineTo(originX + p.x, originY + p.y);
+                    });
+                    targetCtx.closePath();
+                    targetCtx.fill(); 
+                } else {
+                    targetCtx.fillRect(absX, absY, cutout.bounds.width, cutout.bounds.height);
+                }
+                targetCtx.restore();
+            });
+
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0); 
+            ctx.drawImage(tempCanvas, 0, 0);
+            ctx.restore();
+        }
+    },
+
+    _drawCore(ctx, obj) {
         ctx.save();
 
         ctx.strokeStyle = obj.strokeColor || '#000000';
         ctx.fillStyle  = obj.fillColor  || 'transparent';
         ctx.lineWidth  = obj.strokeWidth || 2;
-        ctx.lineJoin   = 'round';
-        ctx.lineCap    = 'round';
         ctx.lineJoin   = 'round';
         ctx.lineCap    = 'round';
 
@@ -843,7 +904,6 @@ const CanvasManager = {
             if (obj.points && obj.points.length > 0) {
                 
                 if (obj.tool === 'eraser') {
-                    // Ластик по-прежнему стирает (делает прозрачными) пиксели
                     ctx.save();
                     ctx.beginPath();
                     ctx.moveTo(obj.points[0].x, obj.points[0].y);
@@ -854,13 +914,11 @@ const CanvasManager = {
                     ctx.stroke();
                     ctx.restore();
                 } else {
-                    // Отрисовка кистей для Карандаша
                     const type = obj.brushType || 'pencil';
                     
                     ctx.save();
                     
                     if (type === 'pencil') {
-                        // 1. ОБЫЧНЫЙ КАРАНДАШ
                         ctx.beginPath();
                         ctx.moveTo(obj.points[0].x, obj.points[0].y);
                         for (let i = 1; i < obj.points.length; i++) {
@@ -869,7 +927,6 @@ const CanvasManager = {
                         ctx.stroke();
                         
                     } else if (type === 'brush') {
-                        // 2. ХУДОЖЕСТВЕННАЯ КИСТЬ (Мягкие края за счет тени)
                         ctx.shadowBlur = ctx.lineWidth / 2;
                         ctx.shadowColor = ctx.strokeStyle;
                         
@@ -881,8 +938,7 @@ const CanvasManager = {
                         ctx.stroke();
                         
                     } else if (type === 'marker') {
-                        // 3. МАРКЕР (Полупрозрачный, широкий, со скошенными углами)
-                        ctx.globalAlpha = 0.4; // Эффект хайлайтера
+                        ctx.globalAlpha = 0.4;
                         ctx.lineCap = 'square';
                         
                         ctx.beginPath();
@@ -893,12 +949,10 @@ const CanvasManager = {
                         ctx.stroke();
                         
                     } else if (type === 'spray') {
-                        // 4. БАЛЛОНЧИК (Напыление точек по траектории)
                         ctx.fillStyle = ctx.strokeStyle;
                         const radius = ctx.lineWidth * 2;
                         
                         obj.points.forEach(p => {
-                            // Генерация псевдослучайного сида для стабильной перерисовки
                             let MathRandom = Math.sin(p.x + p.y) * 10000;
                             let seed = MathRandom - Math.floor(MathRandom);
                             
@@ -947,13 +1001,34 @@ const CanvasManager = {
                     ctx.stroke();
                 }
             }
+        } else if (obj.type === 'imageData') {
+            if (obj.imageData) {
+                if (!obj.cachedImage) {
+                    obj.cachedImage = new Image();
+                    obj.cachedImage.src = obj.imageData;
+                    obj.cachedImage.onload = () => {
+                        if (CanvasManager.layers) {
+                            for (const layer of CanvasManager.layers) {
+                                if (layer.objects && layer.objects.includes(obj)) {
+                                    CanvasManager.drawSingleObject(layer.ctx, obj);
+                                    break;
+                                }
+                            }
+                        }
+                        this.compositeDirty = true;
+                        this.redraw();
+                    };
+                }
+                if (obj.cachedImage.complete) {
+                    ctx.drawImage(obj.cachedImage, obj.x, obj.y, obj.width, obj.height);
+                }
+            }
         } else if (obj.type === 'arrow') {
             this.drawArrow(ctx, obj);
 
         } else if (obj.type === 'text') {
             ctx.save();
             
-            // Формируем строку шрифта
             let fontString = '';
             if (obj.fontStyle === 'italic') fontString += 'italic ';
             if (obj.fontWeight === 'bold') fontString += 'bold ';
@@ -966,16 +1041,13 @@ const CanvasManager = {
             ctx.textAlign = 'left';
             ctx.textBaseline = 'top';
             
-            // Измеряем текст
             const metrics = ctx.measureText(obj.text);
             const textWidth = metrics.width;
             const textHeight = (obj.fontSize || 16) * 1.2;
             
-            // Обновляем размеры объекта
             obj.width = textWidth;
             obj.height = textHeight;
             
-            // Рассчитываем позицию в зависимости от выравнивания
             let drawX = obj.x;
             let drawY = obj.y;
             
@@ -985,15 +1057,12 @@ const CanvasManager = {
                 drawX = obj.x + obj.width - textWidth;
             }
             
-            // Рисуем обводку
             if (obj.strokeColor && obj.strokeColor !== 'transparent' && obj.strokeColor !== '#00000000') {
                 ctx.strokeText(obj.text, drawX, drawY);
             }
             
-            // Рисуем заливку
             ctx.fillText(obj.text, drawX, drawY);
             
-            // Рисуем подчёркивание если нужно
             if (obj.textDecoration === 'underline') {
                 const underlineY = drawY + (obj.fontSize || 16) + 2;
                 ctx.beginPath();

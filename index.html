@@ -85,7 +85,7 @@
         </div>
         <div class="section-content" id="tools-section">
             <div class="tools-grid">
-                <button class="tool-btn active" data-tool="select" title="Выделение (V)">
+                <button class="tool-btn active" data-tool="select" title="Выделение (V)" id="selectToolBtn">
                     <i class="fas fa-mouse-pointer"></i>
                 </button>
                 <button class="tool-btn" data-tool="pencil" title="Карандаш (P)">
@@ -135,7 +135,7 @@
                 <h4>Треугольники</h4>
                 <div class="shapes-grid">
                     <button class="shape-btn" data-tool="triangle" title="Треугольник">
-                        <i class="fas fa-play" style="transform: rotate(-90deg);"></i>
+                        <i class="fas fa-play"></i>
                     </button>
                     <button class="shape-btn" data-tool="rightTriangle" title="Прямоугольный треугольник">
                         <img src="assets/icons/shapes/right-triangle.svg" alt="Прямоугольный треугольник">
@@ -336,6 +336,12 @@
                 <div class="canvas-container" id="canvasContainer">
                     <canvas id="drawCanvas" width="1200" height="800"></canvas>
                 </div>
+
+                <div class="canvas-selection-menu hidden" id="selectionModeMenu" aria-label="Режим выделения">
+                    <button class="selection-mode-btn active" data-selection-mode="normal" title="Выбор объекта"><i class="fas fa-mouse-pointer"></i></button>
+                    <button class="selection-mode-btn" data-selection-mode="rect" title="Прямоугольная область"><i class="fas fa-vector-square"></i></button>
+                    <button class="selection-mode-btn" data-selection-mode="lasso" title="Произвольная область"><i class="fas fa-draw-polygon"></i></button>
+                </div>
                 
                 <!-- Навигация по холсту -->
                 <div class="canvas-navigation">
@@ -447,7 +453,6 @@
             <div class="format-grid" id="formatGrid"></div>
         </div>
 
-        <!-- Скрытый select для обратной совместимости -->
         <select id="fileFormatSelect" style="display: none;">
             <option value="png">PNG</option>
             <option value="jpeg">JPEG</option>
@@ -466,7 +471,6 @@
     </div>
 </div>
 
-    <!-- JavaScript -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
     <script src="js/utils/helpers.js"></script>
     <script src="js/core/canvas.js"></script>
