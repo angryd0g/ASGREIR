@@ -31,11 +31,12 @@
                 <button class="history-btn" id="redo" title="Повторить (Ctrl+Y)"><i class="fas fa-redo"></i></button>
             </div>
             <div class="header-actions">
-                <button class="header-btn" title="Новый проект"><i class="fas fa-file"></i></button>
+                <button class="header-btn" id="settingsBtn" title="Настройки"><i class="fas fa-cog"></i></button>                
+                <button class="header-btn header-btn-labeled" title="Новый проект"><i class="fas fa-file"></i><span>Новый</span></button>
                 <button class="header-btn" title="Открыть"><i class="fas fa-folder-open"></i></button>
-                <button class="header-btn" title="Сохранить"><i class="fas fa-save"></i></button>
-                <button class="header-btn" title="Экспорт"><i class="fas fa-download"></i></button>
-                <button class="header-btn" id="printBtn" title="Печать (Ctrl+P)"><i class="fas fa-print"></i></button>
+                <button class="header-btn" title="Сохранить/Сохранить как"><i class="fas fa-save"></i></button>
+                <button class="header-btn" id="printBtn" title="Печать (Ctrl+Shift+P)"><i class="fas fa-print"></i></button>               
+                <button class="header-btn header-btn-labeled" title="Экспорт проекта"><i class="fas fa-download"></i><span>Экспорт</span></button>                                
             </div>
         </header>
         <div class="main-layout">
@@ -74,6 +75,39 @@
                     <div class="bg-preview bg-preview-dots"></div>
                     <span>Точки</span>
                 </button>
+                <button class="bg-preset" data-bg="transparent">
+                    <div class="bg-preview bg-preview-transparent"></div>
+                    <span>Без фона</span>
+                </button>
+            </div>
+            <div class="other-backgrounds">
+                <h4>Другие фоны</h4>
+                <div class="bg-images-grid">
+                    <button class="bg-image-btn" data-bg-image="assets/backgrounds/bluedark.webp" title="Blue Dark">
+                        <img src="assets/backgrounds/bluedark.webp" alt="Blue Dark">
+                    </button>
+                    <button class="bg-image-btn" data-bg-image="assets/backgrounds/bluewhiteyellow.webp" title="Blue White Yellow">
+                        <img src="assets/backgrounds/bluewhiteyellow.webp" alt="Blue White Yellow">
+                    </button>
+                    <button class="bg-image-btn" data-bg-image="assets/backgrounds/grad.webp" title="Grad">
+                        <img src="assets/backgrounds/grad.webp" alt="Grad">
+                    </button>
+                    <button class="bg-image-btn" data-bg-image="assets/backgrounds/greendark.webp" title="Green Dark">
+                        <img src="assets/backgrounds/greendark.webp" alt="Green Dark">
+                    </button>
+                    <button class="bg-image-btn" data-bg-image="assets/backgrounds/purple.webp" title="Purple">
+                        <img src="assets/backgrounds/purple.webp" alt="Purple">
+                    </button>
+                    <button class="bg-image-btn" data-bg-image="assets/backgrounds/reddark.webp" title="Red Dark">
+                        <img src="assets/backgrounds/reddark.webp" alt="Red Dark">
+                    </button>
+                    <button class="bg-image-btn" data-bg-image="assets/backgrounds/redyelloworange.webp" title="Red Yellow Orange">
+                        <img src="assets/backgrounds/redyelloworange.webp" alt="Red Yellow Orange">
+                    </button>
+                    <button class="bg-image-btn" data-bg-image="assets/backgrounds/yellowrosered.webp" title="Yellow Rose Red">
+                        <img src="assets/backgrounds/yellowrosered.webp" alt="Yellow Rose Red">
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -85,7 +119,7 @@
         </div>
         <div class="section-content" id="tools-section">
             <div class="tools-grid">
-                <button class="tool-btn active" data-tool="select" title="Выделение (V)" id="selectToolBtn">
+                <button class="tool-btn active" data-tool="select" title="Выбрать (V)" id="selectToolBtn">
                     <i class="fas fa-mouse-pointer"></i>
                 </button>
                 <button class="tool-btn" data-tool="pencil" title="Карандаш (P)">
@@ -338,7 +372,7 @@
                 </div>
 
                 <div class="canvas-selection-menu hidden" id="selectionModeMenu" aria-label="Режим выделения">
-                    <button class="selection-mode-btn active" data-selection-mode="normal" title="Выбор объекта"><i class="fas fa-mouse-pointer"></i></button>
+                    <button class="selection-mode-btn active" data-selection-mode="normal" title="Выбрать область"><i class="fas fa-mouse-pointer"></i></button>
                     <button class="selection-mode-btn" data-selection-mode="rect" title="Прямоугольная область"><i class="fas fa-vector-square"></i></button>
                     <button class="selection-mode-btn" data-selection-mode="lasso" title="Произвольная область"><i class="fas fa-draw-polygon"></i></button>
                 </div>
@@ -399,7 +433,7 @@
             </div>
             <div class="status-right">
                 <span><i class="fas fa-hand"></i> Зажмите пробел для перемещения</span>
-                <span><i class="fas fa-sync-alt"></i> v0.6.7</span>
+                <span><i class="fas fa-sync-alt"></i> v1.6.7</span>
             </div>
         </footer>
     </div>
@@ -438,38 +472,87 @@
 </div>
 
     <input type="file" id="openFileInput" accept="image/*" style="display:none;">
-
+    
     <div id="fileModal" class="modal hidden">
-    <div class="modal-content">
-        <h2 id="fileModalTitle"><i class="fas fa-download"></i> Экспорт</h2>
-        
-        <div class="input-group">
-            <label>Имя файла</label>
-            <input type="text" id="fileNameInput" placeholder="untitled">
-        </div>
+        <div class="modal-content">
+            <h2 id="fileModalTitle"><i class="fas fa-download"></i> Экспорт</h2>
+            
+            <div class="input-group">
+                <label>Имя файла</label>
+                <input type="text" id="fileNameInput" placeholder="untitled">
+            </div>
 
-        <div class="size-presets">
-            <h3>Выберите формат</h3>
-            <div class="format-grid" id="formatGrid"></div>
-        </div>
+            <div class="size-presets">
+                <h3>Выберите формат</h3>
+                <div class="format-grid" id="formatGrid"></div>
+            </div>
 
-        <select id="fileFormatSelect" style="display: none;">
-            <option value="png">PNG</option>
-            <option value="jpeg">JPEG</option>
-            <option value="webp">WEBP</option>
-            <option value="ico">ICO</option>
-            <option value="bmp">BMP</option>
-            <option value="gif">GIF</option>
-            <option value="svg">SVG</option>
-            <option value="pdf">PDF</option>
-        </select>
+            <select id="fileFormatSelect" style="display: none;">
+                <option value="png">PNG</option>
+                <option value="jpeg">JPEG</option>
+                <option value="webp">WEBP</option>
+                <option value="ico">ICO</option>
+                <option value="bmp">BMP</option>
+                <option value="gif">GIF</option>
+                <option value="svg">SVG</option>
+                <option value="pdf">PDF</option>
+            </select>
 
-        <div class="modal-actions">
-            <button class="modal-btn" id="fileModalCancel">Отмена</button>
-            <button class="modal-btn primary" id="fileModalOk">Сохранить</button>
+            <div class="modal-actions">
+                <button class="modal-btn" id="fileModalCancel">Отмена</button>
+                <button class="modal-btn primary" id="fileModalOk">Сохранить</button>
+            </div>
         </div>
     </div>
-</div>
+
+    <div id="settingsModal" class="modal hidden">
+        <div class="modal-content">
+            <h2><i class="fas fa-cog"></i> Настройки</h2>
+
+            <div class="size-presets">
+                <h3>Тема интерфейса</h3>
+                <div class="theme-grid" id="themeGrid">
+
+                    <div class="theme-item" data-theme="dark">
+                        <div class="theme-preview theme-preview-dark">
+                            <div class="tp-header"></div>
+                            <div class="tp-body"><div class="tp-sidebar"></div><div class="tp-canvas"></div></div>
+                        </div>
+                        <span class="theme-name">Тёмная</span>
+                    </div>
+
+                    <div class="theme-item" data-theme="black">
+                        <div class="theme-preview theme-preview-black">
+                            <div class="tp-header"></div>
+                            <div class="tp-body"><div class="tp-sidebar"></div><div class="tp-canvas"></div></div>
+                        </div>
+                        <span class="theme-name">Чёрная</span>
+                    </div>
+
+                    <div class="theme-item" data-theme="gray">
+                        <div class="theme-preview theme-preview-gray">
+                            <div class="tp-header"></div>
+                            <div class="tp-body"><div class="tp-sidebar"></div><div class="tp-canvas"></div></div>
+                        </div>
+                        <span class="theme-name">Серая</span>
+                    </div>
+
+                    <div class="theme-item" data-theme="light">
+                        <div class="theme-preview theme-preview-light">
+                            <div class="tp-header"></div>
+                            <div class="tp-body"><div class="tp-sidebar"></div><div class="tp-canvas"></div></div>
+                        </div>
+                        <span class="theme-name">Светлая</span>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="modal-btn primary" id="settingsModalClose">Закрыть</button>
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
     <script src="js/utils/helpers.js"></script>

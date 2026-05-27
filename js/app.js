@@ -1,3 +1,50 @@
+const ThemeManager = {
+    init() {
+        const saved = localStorage.getItem('asgreir-theme') || 'dark';
+        this.apply(saved, false);
+
+        const btn = document.getElementById('settingsBtn');
+        const modal = document.getElementById('settingsModal');
+        const closeBtn = document.getElementById('settingsModalClose');
+
+        btn?.addEventListener('click', () => {
+            modal.classList.remove('hidden');
+            this.refreshSelection();
+        });
+
+        closeBtn?.addEventListener('click', () => modal.classList.add('hidden'));
+        modal?.addEventListener('click', e => {
+            if (e.target === modal) modal.classList.add('hidden');
+        });
+
+        document.querySelectorAll('.theme-item').forEach(item => {
+            item.addEventListener('click', () => this.apply(item.dataset.theme));
+        });
+    },
+
+    apply(theme, save = true) {
+        document.body.dataset.theme = theme;
+        if (save) localStorage.setItem('asgreir-theme', theme);
+        
+        // Меняем логотип под тему
+        const logo = document.querySelector('.logo img');
+        if (logo) {
+            logo.src = theme === 'light' ? 'assets/icons/logodark.png' : 'assets/icons/logo.png';
+        }
+        
+        this.refreshSelection();
+    },
+
+    refreshSelection() {
+        const current = document.body.dataset.theme;
+        document.querySelectorAll('.theme-item').forEach(item => {
+            item.classList.toggle('selected', item.dataset.theme === current);
+        });
+    }
+};
+
+ThemeManager.init();
+
 document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('drawCanvas');
     const container = document.getElementById('canvasContainer');
@@ -102,9 +149,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // ДОБАВЛЕНО: Обработчик двойного клика для редактирования текста
     canvas.addEventListener('dblclick', onDoubleClick);
 
-    // инициализируем менеджер файлов (fileManager.js)
-    FileManager.init();
-
     // Панорамирование пробелом
     window.addEventListener('keydown', e => {
         if (e.code === 'Space' && !NavigationManager.isPanning && !isRightButtonPanning) {
@@ -152,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
             link.click();
         }
 
-        if (e.ctrlKey && e.key === 'p') {
+        if (e.ctrlKey && e.shiftKey && e.key === 'P') {
             e.preventDefault();
             PrintManager.showPreview();
         }
@@ -369,26 +413,59 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     window.addEventListener('keydown', e => {
-        if (e.key === 'Delete' || e.key === 'Del') {
-            const selectedObj = ToolsManager.selectedObject;
-            if (selectedObj) {
-                let found = false;
+        if ((e.key === 'Delete' || e.key === 'Del') &&
+            !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
+
+            // --- Одиночное выделение ---
+            if (ToolsManager.selectedObject) {
                 for (let layer of CanvasManager.layers) {
-                    const index = layer.objects.indexOf(selectedObj);
+                    const index = layer.objects.indexOf(ToolsManager.selectedObject);
                     if (index !== -1) {
                         layer.objects.splice(index, 1);
-                        layer.ctx.clearRect(0, 0, CanvasManager.width, CanvasManager.height);
-                        layer.objects.forEach(obj => CanvasManager.drawSingleObject(layer.ctx, obj));
-                        found = true;
+                        // Удаляем сам слой, если он стал пустым
+                        const layerIndex = CanvasManager.layers.indexOf(layer);
+                        if (layerIndex !== -1) {
+                            CanvasManager.layers.splice(layerIndex, 1);
+                            // Корректируем активный индекс
+                            CanvasManager.activeLayerIndex = Math.max(0, Math.min(
+                                CanvasManager.activeLayerIndex,
+                                CanvasManager.layers.length - 1
+                            ));
+                        }
                         break;
                     }
                 }
-                if (found) {
-                    ToolsManager.selectedObject = null;
-                    CanvasManager.redraw();
-                    LayersManager.updateLayersList();
-                    HistoryManager?.saveState();
-                }
+                ToolsManager.selectedObject = null;
+                CanvasManager.compositeDirty = true;
+                CanvasManager.redraw();
+                LayersManager.updateLayersList();
+                HistoryManager?.saveState();
+
+            // --- Мультивыделение ---
+            } else if (ToolsManager.selectedObjects?.length > 0) {
+                ToolsManager.selectedObjects.forEach(obj => {
+                    for (let layer of CanvasManager.layers) {
+                        const idx = layer.objects.indexOf(obj);
+                        if (idx !== -1) {
+                            layer.objects.splice(idx, 1);
+                            const layerIndex = CanvasManager.layers.indexOf(layer);
+                            if (layerIndex !== -1) {
+                                CanvasManager.layers.splice(layerIndex, 1);
+                                CanvasManager.activeLayerIndex = Math.max(0, Math.min(
+                                    CanvasManager.activeLayerIndex,
+                                    CanvasManager.layers.length - 1
+                                ));
+                            }
+                            break;
+                        }
+                    }
+                });
+                ToolsManager.selectedObjects = [];
+                ToolsManager.selectedObject = null;
+                CanvasManager.compositeDirty = true;
+                CanvasManager.redraw();
+                LayersManager.updateLayersList();
+                HistoryManager?.saveState();
             }
         }
     });
@@ -453,8 +530,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const bgPresets = document.querySelectorAll('.bg-preset');
     bgPresets.forEach(preset => {
         preset.addEventListener('click', () => {
-            bgPresets.forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.bg-preset, .bg-image-btn').forEach(p => p.classList.remove('active'));
             preset.classList.add('active');
+
+            CanvasManager.setBackgroundImage(null);
             
             const bgType = preset.dataset.bg; // 'white', 'gray', 'dark', 'grid', 'dots'
             
@@ -474,14 +553,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (bgType === 'dots') {
                     CanvasManager.setBackgroundColor('#ffffff');
                     CanvasManager.setGridType('dots');
+                } else if (bgType === 'transparent') {
+                    CanvasManager.setBackgroundColor('transparent');
+                    CanvasManager.setGridType('none');
+                    // input type="color" не поддерживает transparent — просто не трогаем его
+                    if (bgColorInput) bgColorInput.value = '#ffffff';
+                    if (bgColorValue) bgColorValue.textContent = 'Без фона';
                 }
-
+                
                 // Синхронизируем значение инпута цвета под выбранный пресет
-                if (bgColorInput) {
+                if (bgColorInput && CanvasManager.backgroundColor !== 'transparent') {
                     bgColorInput.value = CanvasManager.backgroundColor;
                     if (bgColorValue) bgColorValue.textContent = CanvasManager.backgroundColor.toUpperCase();
-                }
+                }   
             }
+        });
+        document.querySelectorAll('.bg-image-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Снимаем активность со всех (и цветов и изображений)
+                document.querySelectorAll('.bg-preset, .bg-image-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                CanvasManager.setBackgroundImage(btn.dataset.bgImage);
+
+                // Сбрасываем цветовой инпут визуально
+                if (bgColorInput) bgColorInput.value = '#ffffff';
+                if (bgColorValue) bgColorValue.textContent = 'Изображение';
+            });
         });
     });
 });

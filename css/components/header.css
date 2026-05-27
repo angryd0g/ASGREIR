@@ -104,7 +104,20 @@
     background: var(--accent);
     color: white;
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(74, 144, 226, 0.3);
+    box-shadow: 0 4px 8px var(--accent-shadow);
+}
+
+.header-btn-labeled {
+    width: auto;
+    padding: 0 10px;
+    gap: 6px;
+    font-size: 13px;
+}
+
+.header-btn-labeled span {
+    font-size: 12px;
+    font-weight: 500;
+    color: inherit;
 }
 
 .header-btn:active {

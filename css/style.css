@@ -26,6 +26,54 @@
     --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
+body[data-theme="dark"] {
+    --bg-primary: #1a1a1a;
+    --bg-secondary: #252525;
+    --bg-tertiary: #2d2d2d;
+    --accent: #888888;
+    --accent-hover: #555555;
+    --text-primary: #ffffff;
+    --text-secondary: #b0b0b0;
+    --border-color: #404040;
+    --accent-shadow: rgba(180, 180, 180, 0.25);
+}
+
+body[data-theme="black"] {
+    --bg-primary: #000000;
+    --bg-secondary: #0d0d0d;
+    --bg-tertiary: #161616;
+    --accent: #888888;
+    --accent-hover: #555555;
+    --text-primary: #ffffff;
+    --text-secondary: #707070;
+    --border-color: #202020;
+    --accent-shadow: rgba(128, 128, 128, 0.2);
+}
+
+body[data-theme="gray"] {
+    --bg-primary: #2e2e2e;
+    --bg-secondary: #393939;
+    --bg-tertiary: #444444;
+    --accent: #888888;
+    --accent-hover: #555555;
+    --text-primary: #ececec;
+    --text-secondary: #a0a0a0;
+    --border-color: #525252;
+    --accent-shadow: rgba(160, 160, 160, 0.25);
+}
+
+body[data-theme="light"] {
+    --bg-primary: #f0f0f0;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #e6e6e6;
+    --accent: #888888;
+    --accent-hover: #555555;
+    --text-primary: #1a1a1a;
+    --text-secondary: #606060;
+    --border-color: #cccccc;
+    --accent-shadow: rgba(100, 100, 100, 0.2);
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: var(--bg-primary);

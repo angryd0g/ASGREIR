@@ -64,8 +64,6 @@ const FileManager = {
             { ext: 'webp', name: 'WEBP', desc: 'Современный', icon: 'fa-chrome' },
             { ext: 'ico', name: 'ICO', desc: 'Иконки', icon: 'fa-windows' },
             { ext: 'bmp', name: 'BMP', desc: 'Без сжатия', icon: 'fa-file-image' },
-            { ext: 'gif', name: 'GIF', desc: 'Анимация', icon: 'fa-film' },
-            { ext: 'svg', name: 'SVG', desc: 'Вектор', icon: 'fa-vector-square' },
             { ext: 'pdf', name: 'PDF', desc: 'Документ', icon: 'fa-file-pdf' }
         ];
 
@@ -148,8 +146,8 @@ const FileManager = {
             if (e.target === this.fileModal) this.fileModal.classList.add('hidden');
         });
         
-        document.querySelector('[title="Сохранить"]').addEventListener('click', () => this.showFileModal('save'));
-        document.querySelector('[title="Экспорт"]').addEventListener('click', () => this.showFileModal('export'));
+        document.querySelector('[title="Сохранить/Сохранить как"]').addEventListener('click', () => this.showFileModal('save'));
+        document.querySelector('[title="Экспорт проекта"]').addEventListener('click', () => this.showFileModal('export'));
     },
 
     loadImageFile(file) {
@@ -157,14 +155,29 @@ const FileManager = {
         reader.onload = (evt) => {
             const img = new Image();
             img.onload = () => {
-                CanvasManager.newProject(img.width, img.height);
+                const cw = CanvasManager.width;
+                const ch = CanvasManager.height;
+
+                // Вписываем в холст с сохранением пропорций, не увеличивая оригинал
+                const scale = Math.min(cw / img.width, ch / img.height, 1);
+                const drawW = Math.round(img.width * scale);
+                const drawH = Math.round(img.height * scale);
+                const drawX = Math.round((cw - drawW) / 2);
+                const drawY = Math.round((ch - drawH) / 2);
+
                 const imageObj = {
                     type: 'imageData',
                     imageData: evt.target.result,
-                    cachedImage: img
+                    cachedImage: img,
+                    x: drawX,
+                    y: drawY,
+                    width: drawW,
+                    height: drawH
                 };
-                CanvasManager.activeLayer.objects.push(imageObj);
-                CanvasManager.redraw();
+
+                // addObject создаёт новый слой, рисует и сохраняет историю
+                CanvasManager.addObject(imageObj);
+
                 this.currentFileName = file.name;
             };
             img.src = evt.target.result;
@@ -183,19 +196,21 @@ const FileManager = {
         const mode = this.fileModal.dataset.mode;
         let name = this.fileNameInput.value.trim();
         if (!name) name = 'untitled';
-        
+
         const selectedFormat = document.querySelector('.format-item.selected');
         const format = selectedFormat ? selectedFormat.dataset.format : this.fileFormatSelect.value;
-        
+
         const ext = format === 'jpeg' ? 'jpg' : format;
         if (!name.toLowerCase().endsWith('.' + ext)) {
             name += '.' + ext;
         }
-        
+
         const mime = this.getMimeType(format);
-        const canvasEl = document.getElementById('drawCanvas');
-        
-        canvasEl.toBlob(blob => {
+
+        // Берём чистый canvas через exportHighRes (без шашки, с прозрачностью если надо)
+        const exportCanvas = CanvasManager.exportHighRes(1);
+
+        exportCanvas.toBlob(blob => {
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
@@ -203,7 +218,7 @@ const FileManager = {
             link.click();
             URL.revokeObjectURL(url);
         }, mime, 0.92);
-        
+
         if (mode === 'save') {
             this.currentFileName = name;
         }
@@ -224,9 +239,7 @@ const FileManager = {
             'jpeg': 'image/jpeg',
             'webp': 'image/webp',
             'bmp': 'image/bmp',
-            'gif': 'image/gif',
             'ico': 'image/x-icon',
-            'svg': 'image/svg+xml',
             'pdf': 'application/pdf'
         };
         return types[format] || 'image/png';

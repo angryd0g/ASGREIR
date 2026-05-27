@@ -1,7 +1,7 @@
 .tools-panel {
     width: 260px;
     background: var(--bg-secondary);
-    border-right: 1px solid var(--border-color);
+    border-right: 0px solid var(--border-color);
     display: flex;
     flex-direction: column;
     overflow-y: auto;   /* ← ИСПРАВЛЕНО */
@@ -44,6 +44,56 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 8px;
+}
+
+/* Другие фоны */
+.other-backgrounds {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-color);
+}
+
+.other-backgrounds h4 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.bg-images-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+}
+
+.bg-image-btn {
+    background: none;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    padding: 0;
+    cursor: pointer;
+    overflow: hidden;
+    aspect-ratio: 1;
+    transition: all 0.2s;
+}
+
+.bg-image-btn img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    border-radius: 4px;
+}
+
+.bg-image-btn:hover {
+    border-color: var(--accent-hover);
+    transform: scale(1.05);
+}
+
+.bg-image-btn.active {
+    border-color: var(--accent-hover);
+    box-shadow: 0 0 6px var(--accent-shadow);
 }
 
 .canvas-selection-menu {
@@ -789,6 +839,16 @@
     background-size: 8px 8px;
 }
 
+.bg-preview-transparent {
+    background-image:
+        linear-gradient(45deg, #ccc 25%, transparent 25%),
+        linear-gradient(-45deg, #ccc 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #ccc 75%),
+        linear-gradient(-45deg, transparent 75%, #ccc 75%);
+    background-size: 8px 8px;
+    background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
+    background-color: #fff;
+}
 /* =========================================
    ЛОГИКА СВОРАЧИВАНИЯ СЕКЦИИ ФОНА
 ========================================= */

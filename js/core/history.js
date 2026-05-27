@@ -30,10 +30,46 @@ const HistoryManager = {
     },
 
     saveInitialState() {
-        this.undoStack = [this.getCurrentState()];
+        const saved = localStorage.getItem('asgreir-autosave');
+
+        if (saved) {
+            try {
+                const data = JSON.parse(saved);
+                // Восстанавливаем размер холста
+                if (data.width && data.height) {
+                    CanvasManager.width = data.width;
+                    CanvasManager.height = data.height;
+                    CanvasManager.canvas.width = data.width * CanvasManager.pixelRatio;
+                    CanvasManager.canvas.height = data.height * CanvasManager.pixelRatio;
+                    CanvasManager.canvas.style.width = `${data.width}px`;
+                    CanvasManager.canvas.style.height = `${data.height}px`;
+                    CanvasManager.ctx = CanvasManager.canvas.getContext('2d');
+                    CanvasManager.ctx.scale(CanvasManager.pixelRatio, CanvasManager.pixelRatio);
+                    CanvasManager.createGridCanvas();
+                    CanvasManager.createCompositeCanvas();
+                }
+                if (data.backgroundColor) {
+                    CanvasManager.setBackgroundColor(data.backgroundColor);
+                }
+                // Восстанавливаем слои
+                this.undoStack = [data.layers];
+                this.restoreState(data.layers);
+
+                if (data.projectName) {
+                    setTimeout(() => FileManager.setProjectName(data.projectName), 0);
+                }
+
+                console.log('Автосохранение восстановлено');
+            } catch(e) {
+                console.warn('Не удалось восстановить автосохранение:', e);
+                this.undoStack = [this.getCurrentState()];
+            }
+        } else {
+            this.undoStack = [this.getCurrentState()];
+        }
+
         this.redoStack = [];
         this.updateButtons();
-        console.log('Начальное состояние сохранено');
     },
 
     reset() {
@@ -43,34 +79,8 @@ const HistoryManager = {
     },
 
     trackCanvasChanges() {
-        // Перехватываем ключевые действия
-        const originalAddObject = CanvasManager.addObject;
-        CanvasManager.addObject = (obj) => {
-            originalAddObject.call(CanvasManager, obj);
-            if (!this.isProcessing) this.saveState();
-        };
-
-        const originalAddLayer = CanvasManager.addLayer;
-        CanvasManager.addLayer = (name) => {
-            const layer = originalAddLayer.call(CanvasManager, name);
-            if (!this.isProcessing) this.saveState();
-            return layer;
-        };
-
-        const originalClear = CanvasManager.clear;
-        CanvasManager.clear = () => {
-            originalClear.call(CanvasManager);
-            if (!this.isProcessing) this.saveState();
-        };
-
-        // Если есть removeObject — адаптируем (но лучше удалить старый)
-        if (CanvasManager.removeObject) {
-            const originalRemove = CanvasManager.removeObject;
-            CanvasManager.removeObject = (index) => {
-                // Пока не адаптировано под слои — пропускаем или реализуй позже
-                console.warn('removeObject пока не поддерживается в истории слоёв');
-            };
-        }
+        // addObject, addLayer, clear в canvas.js уже вызывают HistoryManager.saveState() напрямую.
+        // Дополнительные обёртки не нужны и вызывают дублирование состояний.
     },
 
     getCurrentState() {
@@ -82,11 +92,28 @@ const HistoryManager = {
             locked: layer.locked,
             opacity: layer.opacity,
             objects: layer.objects.map(obj => {
-                // Глубокая копия объекта
+                // Глубокая копия объекта - копируем все свойства
                 const copy = { ...obj };
+                
+                // Копируем массивы точек (для полигонов, путей и т.д.)
                 if (obj.points) {
                     copy.points = obj.points.map(p => ({ ...p }));
                 }
+                
+                // Копируем вырезы (cutouts), если есть
+                if (obj.cutouts && Array.isArray(obj.cutouts)) {
+                    copy.cutouts = obj.cutouts.map(cutout => ({
+                        ...cutout,
+                        points: cutout.points ? cutout.points.map(p => ({ ...p })) : null,
+                        bounds: cutout.bounds ? { ...cutout.bounds } : null
+                    }));
+                }
+                
+                // НЕ копируем canvas или контексты - они не нужны в истории
+                delete copy.canvas;
+                delete copy.ctx;
+                delete copy.cachedImage; // Удаляем кэшированное изображение, будет восстановлено через imageData
+                
                 return copy;
             })
         }));
@@ -118,6 +145,13 @@ const HistoryManager = {
                     if (obj.points) {
                         copy.points = obj.points.map(p => ({ ...p }));
                     }
+                    if (obj.cutouts && Array.isArray(obj.cutouts)) {
+                        copy.cutouts = obj.cutouts.map(cutout => ({
+                            ...cutout,
+                            points: cutout.points ? cutout.points.map(p => ({ ...p })) : null,
+                            bounds: cutout.bounds ? { ...cutout.bounds } : null
+                        }));
+                    }
                     return copy;
                 })
             };
@@ -136,6 +170,14 @@ const HistoryManager = {
         }
 
         CanvasManager.activeLayerIndex = Math.min(CanvasManager.activeLayerIndex, CanvasManager.layers.length - 1);
+        
+        // Очищаем выделение при восстановлении состояния
+        if (ToolsManager) {
+            ToolsManager.selectedObject = null;
+            ToolsManager.selectedObjects = [];
+        }
+        
+        CanvasManager.compositeDirty = true;
         CanvasManager.redraw();
         LayersManager?.updateLayersList();
 
@@ -148,41 +190,56 @@ const HistoryManager = {
         const current = this.getCurrentState();
         const last = this.undoStack[this.undoStack.length - 1];
 
-        // Пропускаем, если ничего не изменилось
-        if (last && JSON.stringify(last) === JSON.stringify(current)) {
-            return;
-        }
+        if (last && JSON.stringify(last) === JSON.stringify(current)) return;
 
         this.undoStack.push(current);
         this.redoStack = [];
 
-        if (this.undoStack.length > this.maxSize) {
-            this.undoStack.shift();
-        }
+        if (this.undoStack.length > this.maxSize) this.undoStack.shift();
 
         this.updateButtons();
-        console.log(`Состояние сохранено (undo: ${this.undoStack.length})`);
+
+        // Автосохранение
+        try {
+            localStorage.setItem('asgreir-autosave', JSON.stringify({
+                layers: current,
+                backgroundColor: CanvasManager.backgroundColor,
+                width: CanvasManager.width,
+                height: CanvasManager.height,
+                projectName: FileManager.currentProjectName || null
+            }));
+        } catch(e) {
+            console.warn('Автосохранение не удалось (возможно мало места):', e);
+        }
     },
 
     undo() {
-        if (this.undoStack.length <= 1) return;
+        if (this.undoStack.length <= 1) {
+            console.log('Нечего отменять');
+            return;
+        }
 
         const current = this.undoStack.pop();
         this.redoStack.push(current);
 
         const previous = this.undoStack[this.undoStack.length - 1];
+        console.log('Undo: восстанавливаем состояние, стек undo:', this.undoStack.length);
+        
         this.restoreState(previous);
-
         this.updateButtons();
     },
 
     redo() {
-        if (this.redoStack.length === 0) return;
+        if (this.redoStack.length === 0) {
+            console.log('Нечего повторять');
+            return;
+        }
 
         const state = this.redoStack.pop();
         this.undoStack.push(state);
+        console.log('Redo: восстанавливаем состояние, стек undo:', this.undoStack.length);
+        
         this.restoreState(state);
-
         this.updateButtons();
     },
 
@@ -193,13 +250,17 @@ const HistoryManager = {
         if (undoBtn) {
             const disabled = this.undoStack.length <= 1;
             undoBtn.disabled = disabled;
+            undoBtn.classList.toggle('disabled', disabled);
             undoBtn.style.opacity = disabled ? '0.5' : '1';
+            undoBtn.style.cursor = disabled ? 'not-allowed' : 'pointer';
         }
 
         if (redoBtn) {
             const disabled = this.redoStack.length === 0;
             redoBtn.disabled = disabled;
+            redoBtn.classList.toggle('disabled', disabled);
             redoBtn.style.opacity = disabled ? '0.5' : '1';
+            redoBtn.style.cursor = disabled ? 'not-allowed' : 'pointer';
         }
     },
 

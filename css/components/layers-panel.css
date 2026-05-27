@@ -253,7 +253,7 @@
 .layer-item.active {
     background: var(--accent);
     border-color: var(--accent-hover);
-    box-shadow: 0 2px 8px rgba(74, 144, 226, 0.3);
+    box-shadow: 0 2px 8px var(--accent-shadow);
 }
 
 .layer-item.active .layer-name {

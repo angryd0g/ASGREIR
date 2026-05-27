@@ -947,6 +947,15 @@ const ToolsManager = {
         if (this.isMoving) {
             this.isMoving = false;
             this.moveObjectSnapshot = null; // Очищаем снимок
+            
+            // Обновляем миниатюру слоя
+            for (let i = 0; i < CanvasManager.layers.length; i++) {
+                if (CanvasManager.layers[i].objects.includes(this.selectedObject)) {
+                    LayersManager?.invalidateLayerThumbnail(i);
+                    break;
+                }
+            }
+            
             HistoryManager?.saveState();
             return null;
         }
@@ -956,6 +965,15 @@ const ToolsManager = {
             this.isResizing = false;
             this.resizingHandle = null;
             this.objectStartBounds = null;
+            
+            // Обновляем миниатюру слоя
+            for (let i = 0; i < CanvasManager.layers.length; i++) {
+                if (CanvasManager.layers[i].objects.includes(this.selectedObject)) {
+                    LayersManager?.invalidateLayerThumbnail(i);
+                    break;
+                }
+            }
+            
             HistoryManager?.saveState();
             return null;
         }
@@ -1094,26 +1112,26 @@ const ToolsManager = {
     
     findObjectAt(x, y) {
         // Проверяем наличие объектов через CanvasManager
-        let objects = [];
-
-        if (CanvasManager.objects && Array.isArray(CanvasManager.objects)) {
-            objects = CanvasManager.objects;
-        } else if (CanvasManager.layers && Array.isArray(CanvasManager.layers)) {
-            // Собираем из всех видимых слоёв, если объекты хранятся по слоям
-            for (let layer of CanvasManager.layers) {
-                if (layer && Array.isArray(layer.objects)) {
-                    objects = objects.concat(layer.objects);
-                }
-            }
+        // ВАЖНО: проверяем слои в обратном порядке (от верхних к нижним)
+        if (!CanvasManager.layers || !Array.isArray(CanvasManager.layers)) {
+            return null;
         }
 
-        for (let i = objects.length - 1; i >= 0; i--) {
-            const obj = objects[i];
+        // Проходим слои в обратном порядке (верхний слой первым)
+        for (let layerIndex = CanvasManager.layers.length - 1; layerIndex >= 0; layerIndex--) {
+            const layer = CanvasManager.layers[layerIndex];
+            if (!layer || !layer.visible || !Array.isArray(layer.objects)) {
+                continue;
+            }
 
-            if (!obj) continue;
+            // Для каждого слоя проходим объекты в обратном порядке (верхний объект первым)
+            for (let i = layer.objects.length - 1; i >= 0; i--) {
+                const obj = layer.objects[i];
+                if (!obj) continue;
 
-            if (this.isPointOnObject(x, y, obj)) {
-                return obj;
+                if (this.isPointOnObject(x, y, obj)) {
+                    return obj;
+                }
             }
         }
         return null;
@@ -1173,7 +1191,19 @@ const ToolsManager = {
         }
 
         if (obj.type === 'polygon' && obj.points) {
-            return this.isPointInPolygon(x, y, obj.points);
+            // Проверяем как внутреннюю часть, так и границы полигона
+            if (this.isPointInPolygon(x, y, obj.points)) {
+                return true;
+            }
+            // Затем проверяем расстояние до линий полигона (для лучшего выбора на границах)
+            const tolerance = 8;
+            for (let i = 0; i < obj.points.length; i++) {
+                const p1 = obj.points[i];
+                const p2 = obj.points[(i + 1) % obj.points.length];
+                const distance = this.distanceToLine(x, y, p1.x, p1.y, p2.x, p2.y);
+                if (distance < tolerance) return true;
+            }
+            return false;
         }
 
         if (obj.type === 'imageData') {
@@ -1448,7 +1478,7 @@ const ToolsManager = {
             ? 'Прямоугольная область'
             : this.selectionMode === 'lasso'
                 ? 'Произвольная область'
-                : 'Выделение';
+                : 'Выбрать область';
         const count = this.selectedObjects?.length || 0;
         const selectionText = count > 0 ? `${count} объект${count === 1 ? '' : 'ов'}` : 'Нет выделения';
         info.textContent = this.currentTool === 'select' ? `${modeLabel}${count > 0 ? ' • ' + selectionText : ''}` : selectionText;

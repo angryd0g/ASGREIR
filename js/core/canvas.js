@@ -26,6 +26,8 @@ const CanvasManager = {
     _rafPending: false,
     backgroundColor: '#ffffff',
     gridType: 'none',
+    backgroundImageSrc: null,
+    backgroundImageObj: null,
 
     scheduleRedraw() {
         if (this._rafPending) return;
@@ -67,6 +69,23 @@ const CanvasManager = {
     setGridType(type) {
         this.gridType = type;
         this.scheduleRedraw();
+    },
+
+    setBackgroundImage(src) {
+        if (!src) {
+            this.backgroundImageSrc = null;
+            this.backgroundImageObj = null;
+            this.scheduleRedraw();
+            return;
+        }
+
+        this.backgroundImageSrc = src;
+        const img = new Image();
+        img.onload = () => {
+            this.backgroundImageObj = img;
+            this.scheduleRedraw(); // Перерисовываем холст, когда картинка загрузится
+        };
+        img.src = src;
     },
 
     // Новый метод ТОЛЬКО для фонового узора (заменяет старый drawGrid)
@@ -496,6 +515,8 @@ const CanvasManager = {
         this.layers = [];
         this.addLayer('Фон');
         this.redraw();
+
+        localStorage.removeItem('asgreir-autosave');
         
         // сбрасываем навигацию и историю
         if (NavigationManager) {
@@ -585,9 +606,19 @@ const CanvasManager = {
         // 1. Очищаем холст
         this.ctx.clearRect(0, 0, this.width, this.height);
         
-        // 2. Заливаем холст актуальным цветом фона
-        this.ctx.fillStyle = this.backgroundColor || '#ffffff';
-        this.ctx.fillRect(0, 0, this.width, this.height);
+        if (this.backgroundColor === 'transparent') {
+            this.drawCheckerboard(this.ctx, 0, 0, this.width, this.height, 10);
+        } else {
+            this.ctx.fillStyle = this.backgroundColor || '#ffffff';
+            this.ctx.fillRect(0, 0, this.width, this.height);
+        }
+
+        if (this.backgroundImageObj) {
+            // Рисуем картинку как повторяющийся паттерн (плиткой)
+            const ptrn = this.ctx.createPattern(this.backgroundImageObj, 'repeat');
+            this.ctx.fillStyle = ptrn;
+            this.ctx.fillRect(0, 0, this.width, this.height);
+        }
 
         // 3. Добавляем узор фона (если он выбран в пресетах)
         this.drawBackgroundPattern(this.ctx);
@@ -1142,10 +1173,11 @@ const CanvasManager = {
 
         exCtx.scale(scale * this.pixelRatio, scale * this.pixelRatio);
         
-        // Рисуем фон и декоративный узор
-        exCtx.fillStyle = this.backgroundColor || '#ffffff'; 
-        exCtx.fillRect(0, 0, this.width, this.height);
-        this.drawBackgroundPattern(exCtx);
+        if (this.backgroundColor !== 'transparent') {
+            exCtx.fillStyle = this.backgroundColor || '#ffffff';
+            exCtx.fillRect(0, 0, this.width, this.height);
+            this.drawBackgroundPattern(exCtx);
+        }
 
         this.layers.forEach(layer => {
             if (!layer.visible) return;
