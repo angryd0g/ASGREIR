@@ -3,15 +3,20 @@ const ShapesManager = {
     // Словарь с функциями создания фигур
     shapes: {
         // Базовые фигуры
-        line: (startX, startY, endX, endY, strokeColor, strokeWidth) => ({
-            type: 'line',
-            x1: startX,
-            y1: startY,
-            x2: endX,
-            y2: endY,
-            strokeColor: strokeColor,
-            strokeWidth: strokeWidth
-        }),
+        line: (startX, startY, endX, endY, strokeColor, strokeWidth) => {
+            const sw = (typeof strokeWidth === 'number' && !isNaN(strokeWidth))
+                ? strokeWidth
+                : (typeof ToolsManager !== 'undefined' ? Number(ToolsManager.strokeWidth) || 2 : 2);
+            return {
+                type: 'line',
+                x1: startX,
+                y1: startY,
+                x2: endX,
+                y2: endY,
+                strokeColor: strokeColor,
+                strokeWidth: sw
+            };
+        },
         
         rect: (startX, startY, endX, endY, strokeColor, fillColor, strokeWidth) => ({
             type: 'rect',
@@ -282,7 +287,9 @@ drawTemporary(ctx, tool, startX, startY, endX, endY, strokeColor, fillColor, str
     ctx.save();
     ctx.strokeStyle = strokeColor;
     ctx.fillStyle = fillColor;
-    ctx.lineWidth = strokeWidth;
+    // Гарантируем числовую толщину линии: используем переданное значение или значение из ToolsManager
+    const lw = Number(strokeWidth) || (typeof ToolsManager !== 'undefined' ? Number(ToolsManager.strokeWidth) || 2 : 2);
+    ctx.lineWidth = lw;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     

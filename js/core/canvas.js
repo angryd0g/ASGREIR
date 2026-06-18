@@ -554,17 +554,27 @@ const CanvasManager = {
             return;
         }
 
-        // Для ластика операция должна происходить на активном слое,
-        // иначе destination-out будет стирать только прозрачный новый слой
+        // Для ластика: применяем операцию стирания (destination-out) к существующим слоям.
+        // Ластик не сохраняется как отдельный объект — он модифицирует пиксели слоёв сразу.
         if (obj.tool === 'eraser') {
-            const currentLayer = this.activeLayer || this.addLayer('Фон');
-            currentLayer.objects.push(obj);
-            this.drawSingleObject(currentLayer.ctx, obj);
-            this.compositeDirty = true;
-            this.redraw();
-            LayersManager?.updateLayersList();
-            HistoryManager?.saveState();
-            console.log(`Объект ${obj.type} добавлен в активный слой "${currentLayer.name}"`);
+            let applied = false;
+            for (let i = 0; i < this.layers.length; i++) {
+                const layer = this.layers[i];
+                if (!layer || layer.locked || !layer.visible) continue;
+                // Опционально пропускаем фоновый слой (обычно индекс 0)
+                if (i === 0 && layer.name && layer.name.toLowerCase().includes('фон')) continue;
+
+                // Применяем стирание прямо на canvas слоя
+                this.drawSingleObject(layer.ctx, obj);
+                applied = true;
+                if (typeof LayersManager !== 'undefined') LayersManager.invalidateLayerThumbnail(i);
+            }
+
+            if (applied) {
+                this.compositeDirty = true;
+                this.redraw();
+                HistoryManager?.saveState();
+            }
             return;
         }
 
@@ -981,19 +991,22 @@ const CanvasManager = {
                         
                     } else if (type === 'spray') {
                         ctx.fillStyle = ctx.strokeStyle;
-                        const radius = ctx.lineWidth * 2;
-                        
-                        obj.points.forEach(p => {
-                            let MathRandom = Math.sin(p.x + p.y) * 10000;
-                            let seed = MathRandom - Math.floor(MathRandom);
-                            
-                            for (let j = 0; j < 10; j++) {
-                                const angle = (seed * j * 77) * Math.PI;
-                                const r = (seed * j * 33 % 1) * radius;
+                        const radius = Math.max(1, Math.round(ctx.lineWidth * 2));
+                        const particlesPerPoint = Math.max(20, Math.round(ctx.lineWidth * 8));
+
+                        // Быстрый детерминированный PRNG на основе синуса — равномернее, чем предыдущая версия
+                        const prng = (sx, sy, n) => {
+                            return (Math.abs(Math.sin(sx * 12.9898 + sy * 78.233 + n * 37.719)) * 43758.5453) % 1;
+                        };
+
+                        obj.points.forEach((p) => {
+                            for (let j = 0; j < particlesPerPoint; j++) {
+                                const rndR = Math.sqrt(prng(p.x, p.y, j));
+                                const r = rndR * radius;
+                                const angle = prng(p.x + 1, p.y - 1, j) * Math.PI * 2;
                                 const splashX = p.x + Math.cos(angle) * r;
                                 const splashY = p.y + Math.sin(angle) * r;
-                                
-                                ctx.fillRect(splashX, splashY, 1.5, 1.5);
+                                ctx.fillRect(splashX, splashY, 1.2, 1.2);
                             }
                         });
                     }
@@ -1172,10 +1185,26 @@ const CanvasManager = {
         const exCtx = exCanvas.getContext('2d');
 
         exCtx.scale(scale * this.pixelRatio, scale * this.pixelRatio);
-        
+        // Рисуем фон: цвет + (опционально) фон-изображение/паттерн
         if (this.backgroundColor !== 'transparent') {
             exCtx.fillStyle = this.backgroundColor || '#ffffff';
             exCtx.fillRect(0, 0, this.width, this.height);
+        }
+
+        // Если задано фоновое изображение (паттерн/градиент в виде Image), отрисуем его поверх цвета
+        if (this.backgroundImageObj) {
+            try {
+                const pattern = exCtx.createPattern(this.backgroundImageObj, 'repeat');
+                if (pattern) {
+                    exCtx.fillStyle = pattern;
+                    exCtx.fillRect(0, 0, this.width, this.height);
+                }
+            } catch (e) {
+                // В редких случаях createPattern может бросить, продолжим без падения
+                console.warn('exportHighRes: не удалось создать pattern для backgroundImageObj', e);
+            }
+        } else {
+            // В остальных случаях рисуем декоративный фон (grid/dots) если он выбран
             this.drawBackgroundPattern(exCtx);
         }
 

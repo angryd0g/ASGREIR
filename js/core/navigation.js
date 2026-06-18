@@ -233,14 +233,31 @@ const NavigationManager = {
         }
     },
     
-    stopPan() {
+    stopPan(applyInertia = true) {
         this.isPanning = false;
         // Отменяем незавершенную анимацию
         if (this.animationFrame) {
             cancelAnimationFrame(this.animationFrame);
             this.animationFrame = null;
         }
-        // Запускаем инерцию
+
+        // Если не нужно применять инерцию, просто сбрасываем значения
+        if (!applyInertia) {
+            this.momentumX = 0;
+            this.momentumY = 0;
+            return;
+        }
+
+        // Применяем инерцию только если скорость достаточно большая,
+        // иначе это даёт небольшой сдвиг к курсору при отпускании.
+        const speed = Math.hypot(this.momentumX || 0, this.momentumY || 0);
+        const inertiaThreshold = 2; // пикселей — порог для запуска инерции
+        if (speed < inertiaThreshold) {
+            this.momentumX = 0;
+            this.momentumY = 0;
+            return;
+        }
+
         this.applyMomentum();
     },
     

@@ -153,7 +153,19 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('keydown', e => {
         if (e.code === 'Space' && !NavigationManager.isPanning && !isRightButtonPanning) {
             e.preventDefault();
-            NavigationManager.isPanning = true;
+            // Устанавливаем начальную точку панорамирования равной текущей позиции курсора,
+            // чтобы холст не «дергался» к верхнему левому углу.
+            try {
+                const rect = canvas.getBoundingClientRect();
+                const cssX = (NavigationManager.lastMouseX || 0) - rect.left;
+                const cssY = (NavigationManager.lastMouseY || 0) - rect.top;
+                const x = cssX / (NavigationManager.scale || 1);
+                const y = cssY / (NavigationManager.scale || 1);
+                NavigationManager.startPan(x, y);
+            } catch (err) {
+                // fallback — просто помечаем как панинг
+                NavigationManager.isPanning = true;
+            }
             container.classList.add('panning');
             canvas.style.cursor = 'grab';
         }
@@ -161,7 +173,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.addEventListener('keyup', e => {
         if (e.code === 'Space') {
-            NavigationManager.isPanning = false;
+            // При отпускании Space отключаем инерцию, чтобы не было небольшого "подтягивания" холста
+            NavigationManager.stopPan(false);
             container.classList.remove('panning');
             if (!isRightButtonPanning) canvas.style.cursor = 'crosshair';
         }
@@ -379,6 +392,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         // Заставляем менеджер немедленно перерисовать очередь миниатюр
                         LayersManager.scheduleThumbnailUpdates();
                     }
+                    // Гарантированно сохраняем состояние истории (страховка от случаев, когда addObject не вызвал saveState)
+                    HistoryManager?.saveState();
                 }
             }
 

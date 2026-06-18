@@ -123,6 +123,21 @@ const ToolsManager = {
                     brushSection.style.display = 'none';
                 }
             }
+
+            // Скрываем настройку заливки для инструмента карандаш — она не используется
+            try {
+                const fillInput = document.getElementById('fill-color');
+                const fillGroup = fillInput ? fillInput.closest('.property-group') : null;
+                if (fillGroup) {
+                    if (this.currentTool === 'pencil') {
+                        fillGroup.style.display = 'none';
+                    } else {
+                        fillGroup.style.display = '';
+                    }
+                }
+            } catch (e) {
+                // безопасно пропускаем, если DOM-структура другая
+            }
             
             // При выборе инструмента "Текст" снимаем выделение
             if (this.currentTool === 'text') {
@@ -1361,22 +1376,77 @@ const ToolsManager = {
     
         console.log(`Flood fill: залито ${pixelsChanged} пикселей`);
     
-        // ── 4. Применяем маску к АКТИВНОМУ слою ─────────────────────────────────
-        const layerCtx = CanvasManager.activeLayer.ctx;
+        // ── 4. Применяем маску: создаём объект `imageData` в активном слое,
+        // чтобы изменения были репродуцируемы при перерисовке слоёв.
+        const layer = CanvasManager.activeLayer;
+        if (!layer || !layer.ctx) return;
+
+        const layerCtx = layer.ctx;
         const layerImageData = layerCtx.getImageData(0, 0, physicalW, physicalH);
         const layerData = layerImageData.data;
-    
+
+        // Вставляем цвет заливки в imageData (физические пиксели)
+        let anyChanged = false;
+        let minPx = physicalW, minPy = physicalH, maxPx = 0, maxPy = 0;
         for (let i = 0; i < mask.length; i++) {
             if (mask[i]) {
+                anyChanged = true;
                 const idx = i * 4;
                 layerData[idx]     = fillRGB.r;
                 layerData[idx + 1] = fillRGB.g;
                 layerData[idx + 2] = fillRGB.b;
                 layerData[idx + 3] = 255;
+
+                const py = Math.floor(i / physicalW);
+                const px = i % physicalW;
+                if (px < minPx) minPx = px;
+                if (py < minPy) minPy = py;
+                if (px > maxPx) maxPx = px;
+                if (py > maxPy) maxPy = py;
             }
         }
-    
-        layerCtx.putImageData(layerImageData, 0, 0);
+
+        if (!anyChanged) {
+            console.log('Flood fill: ничего не изменено');
+            return;
+        }
+
+        // Создаём маленький canvas с областью изменений и сохраняем её как dataURL
+        const bboxW = maxPx - minPx + 1;
+        const bboxH = maxPy - minPy + 1;
+
+        // Полный временный canvas (для удобства используем putImageData на полном изображении)
+        const fullTemp = document.createElement('canvas');
+        fullTemp.width = physicalW;
+        fullTemp.height = physicalH;
+        const fullCtx = fullTemp.getContext('2d');
+        fullCtx.putImageData(layerImageData, 0, 0);
+
+        const small = document.createElement('canvas');
+        small.width = Math.max(1, bboxW);
+        small.height = Math.max(1, bboxH);
+        const smallCtx = small.getContext('2d');
+        smallCtx.drawImage(fullTemp, minPx, minPy, bboxW, bboxH, 0, 0, bboxW, bboxH);
+        const dataUrl = small.toDataURL('image/png');
+
+        // Создаём объект imageData в координатах логического холста
+        const ratio = CanvasManager.pixelRatio || 1;
+        const obj = {
+            type: 'imageData',
+            x: Math.round(minPx / ratio),
+            y: Math.round(minPy / ratio),
+            width: Math.round(bboxW / ratio),
+            height: Math.round(bboxH / ratio),
+            imageData: dataUrl,
+            tool: 'imageData'
+        };
+
+        // Добавляем объект в активный слой и перерисовываем слой
+        layer.objects.push(obj);
+        layer.ctx.clearRect(0, 0, CanvasManager.width, CanvasManager.height);
+        layer.objects.forEach(o => CanvasManager.drawSingleObject(layer.ctx, o));
+
+        if (typeof LayersManager !== 'undefined') LayersManager.invalidateLayerThumbnail(CanvasManager.activeLayerIndex);
         CanvasManager.compositeDirty = true;
         CanvasManager.redraw();
         HistoryManager?.saveState();

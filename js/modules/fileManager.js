@@ -210,13 +210,46 @@ const FileManager = {
         // Берём чистый canvas через exportHighRes (без шашки, с прозрачностью если надо)
         const exportCanvas = CanvasManager.exportHighRes(1);
 
+        // PDF: открываем новое окно с изображением и предлагаем печать (Save as PDF)
+        if (format === 'pdf') {
+            const dataUrl = exportCanvas.toDataURL('image/png');
+            const w = window.open('', '_blank');
+            if (!w) {
+                alert('Браузер запретил открытие окна для экспорта в PDF. Попробуйте разрешить всплывающие окна.');
+                return;
+            }
+            w.document.write(`<!doctype html><html><head><title>${name}</title></head><body style="margin:0">` +
+                `<img src="${dataUrl}" style="width:100%;height:auto;display:block;"/>` +
+                `<script>window.onload = function(){ setTimeout(()=>{ window.print(); }, 100); };</script>` +
+                `</body></html>`);
+            w.document.close();
+            this.fileModal.classList.add('hidden');
+            if (mode === 'save') this.currentFileName = name;
+            return;
+        }
+
+        // Для форматов, которые браузер может не поддерживать напрямую, пробуем toBlob, а при неудаче — fallback в PNG
         exportCanvas.toBlob(blob => {
+            if (!blob || blob.size === 0) {
+                // fallback: отдаём PNG
+                const pngUrl = exportCanvas.toDataURL('image/png');
+                const link = document.createElement('a');
+                link.href = pngUrl;
+                link.download = name.replace(/\.[^.]+$/, '.png');
+                link.click();
+                this.fileModal.classList.add('hidden');
+                if (mode === 'save') this.currentFileName = name.replace(/\.[^.]+$/, '.png');
+                return;
+            }
+
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
             link.download = name;
             link.click();
             URL.revokeObjectURL(url);
+            this.fileModal.classList.add('hidden');
+            if (mode === 'save') this.currentFileName = name;
         }, mime, 0.92);
 
         if (mode === 'save') {

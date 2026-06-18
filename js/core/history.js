@@ -18,15 +18,47 @@ const HistoryManager = {
         if (undoBtn) undoBtn.addEventListener('click', () => this.undo());
         if (redoBtn) redoBtn.addEventListener('click', () => this.redo());
 
-        document.addEventListener('keydown', e => {
-            if (e.ctrlKey && e.key.toLowerCase() === 'z') {
-                e.preventDefault();
-                this.undo();
-            } else if (e.ctrlKey && e.key.toLowerCase() === 'y') {
-                e.preventDefault();
-                this.redo();
+        // Используем фазу захвата, чтобы перехватить сочетания до других обработчиков
+        // Убираем предыдущий обработчик, если он был привязан, чтобы избежать дублирования
+        if (this._historyKeyHandler) {
+            try { document.removeEventListener('keydown', this._historyKeyHandler, true); } catch(e) {}
+            this._historyKeyHandler = null;
+        }
+
+        this._historyKeyHandler = (e) => {
+            try {
+                console.log('HistoryManager: keydown', { key: e.key, code: e.code, ctrl: e.ctrlKey, meta: e.metaKey, shift: e.shiftKey, target: document.activeElement && document.activeElement.tagName });
+
+                // Если фокус в текстовом инпуте/textarea или в contentEditable — даём нативному элементу обрабатывать комбинации
+                const active = document.activeElement;
+                const isTextInput = active && (
+                    active.tagName === 'INPUT' ||
+                    active.tagName === 'TEXTAREA' ||
+                    active.isContentEditable
+                );
+
+                if (isTextInput) return;
+
+                const key = (e.key || '').toLowerCase();
+                const ctrl = e.ctrlKey || e.metaKey; // поддержка Mac
+                const code = e.keyCode || 0;
+
+                // Поддержка Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y
+                if (ctrl && (key === 'z' || code === 90) && !e.shiftKey) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    this.undo();
+                } else if ((ctrl && (key === 'y' || code === 89)) || (ctrl && (key === 'z' || code === 90) && e.shiftKey)) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    this.redo();
+                }
+            } catch (err) {
+                console.error('History key handler error:', err);
             }
-        });
+        };
+
+        document.addEventListener('keydown', this._historyKeyHandler, true);
     },
 
     saveInitialState() {
@@ -73,7 +105,9 @@ const HistoryManager = {
     },
 
     reset() {
-        this.undoStack = [];
+        // Сбрасываем стеки и сохраняем текущее состояние как исходное,
+        // чтобы после создания нового проекта или очистки можно было отменить первую операцию.
+        this.undoStack = [this.getCurrentState()];
         this.redoStack = [];
         this.updateButtons();
     },
@@ -198,6 +232,8 @@ const HistoryManager = {
         if (this.undoStack.length > this.maxSize) this.undoStack.shift();
 
         this.updateButtons();
+
+        console.log('HistoryManager.saveState: pushed state, undo stack size =', this.undoStack.length);
 
         // Автосохранение
         try {
